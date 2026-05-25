@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Longest Substring after Replacement – Sliding Window</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #090b14;
+      --surf:    #0e1020;
+      --surf2:   #131526;
+      --border:  #1b1e35;
+      --border2: #232640;
+      --muted:   #334155;
+      --text:    #e2e8f0;
+      --dominant:#f59e0b;   /* amber  – dominant letter */
+      --replace: #ec4899;   /* pink   – replacement slots */
+      --shrink:  #ef4444;   /* red    – over budget */
+      --extend:  #10b981;   /* green  – extending */
+      --best:    #a855f7;   /* purple – best window */
+      --blue:    #3b82f6;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1rem 5rem;
+    }
+
+    .header { text-align:center; margin-bottom:1.8rem; }
+    .header h1 { font-size:1.45rem; font-weight:800; color:#f8fafc; letter-spacing:-.02em; }
+    .header p  { color:#475569; font-size:.82rem; margin-top:.3rem; }
+    .header a  { color:var(--dominant); text-decoration:none; font-size:.76rem; }
+    .header a:hover { text-decoration:underline; }
+
+    /* ── Card ── */
+    .card {
+      background:var(--surf); border:1px solid var(--border);
+      border-radius:16px; padding:1.4rem 1.5rem;
+      margin-bottom:1.3rem; max-width:960px;
+      margin-left:auto; margin-right:auto;
+    }
+    .card-title { font-size:.67rem; font-weight:700; text-transform:uppercase;
+                  letter-spacing:.1em; color:var(--border2); margin-bottom:.9rem; }
+
+    /* ── Controls ── */
+    .controls { display:flex; flex-wrap:wrap; align-items:center; gap:.6rem; }
+    label { font-size:.8rem; color:#94a3b8; }
+    input[type=text] {
+      background:var(--bg); border:1px solid var(--border);
+      border-radius:8px; color:#f1f5f9;
+      padding:.38rem .65rem; font-size:.88rem; width:180px;
+      font-family:monospace; letter-spacing:.1em;
+    }
+    input[type=number] {
+      background:var(--bg); border:1px solid var(--border);
+      border-radius:8px; color:#f1f5f9;
+      padding:.38rem .65rem; font-size:.88rem; width:62px;
+    }
+    input:focus { outline:2px solid var(--dominant); outline-offset:2px; }
+
+    .btn { padding:.4rem 1rem; border-radius:8px; border:none;
+           font-size:.8rem; font-weight:600; cursor:pointer;
+           transition:opacity .15s, transform .1s; }
+    .btn:hover  { opacity:.85; transform:translateY(-1px); }
+    .btn:active { transform:none; }
+    .btn-primary { background:var(--dominant); color:#000; }
+    .btn-play    { background:var(--extend); color:#fff; min-width:86px; }
+    .btn-pause   { background:var(--dominant); color:#000; min-width:86px; }
+    .btn-reset   { background:var(--surf2); border:1px solid var(--border); color:#64748b; }
+    .btn-step    { background:var(--surf2); border:1px solid var(--border); color:#64748b; }
+    .btn-ex      { background:var(--surf2); border:1px solid var(--border); color:#64748b; font-size:.72rem; }
+    .speed-row   { display:flex; align-items:center; gap:.5rem; margin-top:.6rem; }
+    input[type=range] { accent-color:var(--dominant); width:110px; }
+
+    /* ── Phase banner ── */
+    .phase-banner {
+      display:flex; align-items:center; gap:.65rem;
+      padding:.5rem .95rem; border-radius:11px;
+      font-size:.77rem; font-weight:700;
+      margin-bottom:1.1rem; border:1px solid transparent;
+      transition:all .3s;
+    }
+    .ph-extend { background:#031a0e; border-color:var(--extend);  color:#6ee7b7; }
+    .ph-shrink { background:#200606; border-color:var(--shrink);  color:#fca5a5; }
+    .ph-idle   { background:#0f111a; border-color:#1e293b; color:#334155; }
+    .ph-dot    { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+    .ph-extend .ph-dot { background:var(--extend); box-shadow:0 0 6px var(--extend); }
+    .ph-shrink .ph-dot { background:var(--shrink); box-shadow:0 0 6px var(--shrink);
+                         animation:blink .6s infinite; }
+    .ph-idle   .ph-dot { background:#374151; }
+    @keyframes blink { 0%,100%{opacity:1}50%{opacity:.2} }
+
+    /* ── String ── */
+    .string-wrap { overflow-x:auto; padding-bottom:.5rem; }
+    .string-scene { display:flex; flex-direction:column; gap:4px; min-width:max-content; }
+    .string-row   { display:flex; gap:5px; }
+    .char-col     { display:flex; flex-direction:column; align-items:center; gap:3px; }
+    .char-idx     { font-size:.6rem; color:var(--border2); font-weight:600; }
+
+    .char-cell {
+      width:52px; height:58px; border-radius:11px;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:2px;
+      font-size:1.35rem; font-weight:800; font-family:monospace;
+      border:2px solid transparent; transition:all .22s; position:relative;
+    }
+    .ch-letter { position:relative; z-index:1; }
+    .ch-role   { font-size:.52rem; font-weight:700; position:relative; z-index:1;
+                 font-family:'Segoe UI', sans-serif; }
+
+    .char-cell.default   { background:var(--surf2); border-color:var(--border); color:var(--border2); }
+    .char-cell.default .ch-role { color:var(--border); }
+    .char-cell.dominant  { background:#1c1000; border-color:var(--dominant); color:#fde68a;
+                           transform:translateY(-6px); box-shadow:0 7px 20px rgba(245,158,11,.25); }
+    .char-cell.dominant .ch-role { color:#d97706; }
+    .char-cell.replaced  { background:#1c0016; border-color:var(--replace); color:#fbcfe8;
+                           transform:translateY(-6px); box-shadow:0 7px 20px rgba(236,72,153,.2); }
+    .char-cell.replaced .ch-role { color:var(--replace); }
+    .char-cell.shrinking { background:#200606; border-color:var(--shrink); color:#fca5a5;
+                           transform:translateY(3px); }
+    .char-cell.shrinking .ch-role { color:var(--shrink); }
+    .char-cell.done      { background:var(--bg); border-color:#0f111a; color:#1e2236; }
+    .char-cell.done .ch-role { color:#0f111a; }
+    .char-cell.best-dom  { background:#1a1200; border-color:var(--best); color:#e9d5ff;
+                           transform:translateY(-6px); box-shadow:0 7px 20px rgba(168,85,247,.2); }
+    .char-cell.best-rep  { background:#150d1f; border-color:var(--best); color:#ddd6fe;
+                           transform:translateY(-5px); }
+
+    /* bracket */
+    .bracket-row { display:flex; gap:5px; min-width:max-content; }
+    .bracket-cell { width:52px; height:7px; display:flex; align-items:center; }
+    .bracket-line { height:3px; width:100%; border-radius:2px;
+                    opacity:0; transition:opacity .2s, background .2s; }
+    .bracket-line.v      { opacity:1; background:var(--extend); }
+    .bracket-line.v.shr  { background:var(--shrink); }
+    .bracket-line.v.best { background:var(--best); }
+
+    /* ── Budget panel ── */
+    .budget-panel {
+      background:var(--bg); border:1px solid var(--border);
+      border-radius:13px; padding:1rem 1.1rem; margin-top:1rem;
+    }
+    .budget-title { font-size:.65rem; font-weight:700; text-transform:uppercase;
+                    letter-spacing:.09em; color:var(--border2); margin-bottom:.75rem; }
+
+    /* formula display */
+    .formula-row {
+      display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;
+      font-family:monospace; font-size:.88rem;
+      background:var(--surf2); border-radius:10px;
+      padding:.65rem .9rem; margin-bottom:.85rem;
+      border:1px solid var(--border);
+    }
+    .f-group { display:flex; align-items:center; gap:.3rem; }
+    .f-label { font-size:.65rem; color:var(--border2); text-transform:uppercase; letter-spacing:.07em; }
+    .f-val   { font-size:1.05rem; font-weight:800; }
+    .f-op    { color:var(--border2); font-size:1rem; }
+    .f-ok    { color:var(--extend); }
+    .f-over  { color:var(--shrink); }
+    .f-dom   { color:var(--dominant); }
+    .f-size  { color:#60a5fa; }
+    .f-rep   { color:var(--replace); }
+    .f-k     { color:#a78bfa; }
+    .f-result { font-size:.85rem; font-weight:700; padding:.25rem .7rem;
+                border-radius:999px; border:1px solid; white-space:nowrap; }
+    .f-result.ok   { background:#052e16; border-color:#166534; color:#86efac; }
+    .f-result.over { background:#200606; border-color:#991b1b; color:#fca5a5; }
+
+    /* replacement slots */
+    .slots-label { font-size:.65rem; color:var(--border2); margin-bottom:.5rem; }
+    .slots-row   { display:flex; flex-wrap:wrap; gap:5px; }
+    .slot-box {
+      width:28px; height:28px; border-radius:6px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:.8rem; font-weight:800; font-family:monospace;
+      border:2px solid; transition:all .2s;
+    }
+    .slot-box.used  { background:#1c0016; border-color:var(--replace); color:#fbcfe8; }
+    .slot-box.free  { background:var(--surf2); border-color:var(--border2); color:var(--border2); }
+    .slot-box.over  { background:#200606; border-color:var(--shrink); color:#fca5a5; animation:pulse-r .5s infinite; }
+    @keyframes pulse-r { 0%,100%{opacity:1}50%{opacity:.5} }
+
+    /* ── Frequency + dominant ── */
+    .freq-dominant-row {
+      display:grid; grid-template-columns:1fr auto; gap:.85rem; margin-top:1rem;
+    }
+    @media(max-width:600px){ .freq-dominant-row { grid-template-columns:1fr; } }
+
+    .freq-panel {
+      background:var(--bg); border:1px solid var(--border);
+      border-radius:12px; padding:.9rem 1rem;
+    }
+    .freq-entries { display:flex; flex-wrap:wrap; gap:.45rem; margin-top:.6rem; min-height:38px; }
+    .freq-entry {
+      display:flex; align-items:center; gap:.35rem;
+      padding:.28rem .6rem; border-radius:8px;
+      font-family:monospace; font-size:.82rem; font-weight:700;
+      border:1px solid; transition:all .2s;
+    }
+    .freq-entry.dom-entry { border-color:var(--dominant); background:#1c1000;
+                            transform:scale(1.07); box-shadow:0 4px 12px rgba(245,158,11,.2); }
+    .freq-entry.normal    { border-color:var(--border); background:var(--surf2); }
+    .fe-char { font-size:.95rem; }
+    .fe-x    { color:var(--border2); font-size:.72rem; }
+    .fe-cnt  { background:#ffffff12; border-radius:4px; padding:.05rem .3rem; font-size:.78rem; }
+    .fe-bar  { height:3px; border-radius:2px; margin-top:2px; transition:width .3s; }
+
+    .dominant-box {
+      background:var(--bg); border:2px solid var(--dominant);
+      border-radius:12px; padding:.9rem 1rem;
+      display:flex; flex-direction:column; align-items:center;
+      justify-content:center; gap:.3rem; min-width:130px;
+      box-shadow:0 0 20px rgba(245,158,11,.15);
+    }
+    .dom-label { font-size:.62rem; text-transform:uppercase; letter-spacing:.09em; color:#d97706; }
+    .dom-letter { font-family:monospace; font-size:2.5rem; font-weight:900; color:#fde68a; }
+    .dom-count  { font-size:1rem; font-weight:700; color:var(--dominant); }
+    .dom-sub    { font-size:.65rem; color:#d97706; }
+
+    /* ── maxRepeat insight box ── */
+    .insight-banner {
+      display:flex; align-items:flex-start; gap:.7rem;
+      background:#1c1000; border:1px solid #92400e;
+      border-radius:11px; padding:.85rem 1rem;
+      margin-top:1rem; font-size:.79rem; line-height:1.6;
+    }
+    .ib-icon { font-size:1.1rem; flex-shrink:0; margin-top:.05rem; }
+    .ib-text { color:#fde68a; }
+    .ib-text strong { color:var(--dominant); }
+    .ib-frozen { color:#d97706; font-size:.72rem; font-weight:700;
+                 background:#ffffff10; border-radius:5px; padding:.1rem .4rem;
+                 font-family:monospace; white-space:nowrap; }
+
+    /* ── Info grid ── */
+    .info-grid {
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(108px,1fr));
+      gap:.6rem; margin-top:1rem;
+    }
+    .info-box { background:var(--bg); border:1px solid #141827;
+                border-radius:10px; padding:.65rem .85rem; text-align:center; }
+    .info-label { font-size:.6rem; text-transform:uppercase; letter-spacing:.08em;
+                  color:var(--border2); margin-bottom:.22rem; }
+    .info-val   { font-size:1.2rem; font-weight:700; color:#f1f5f9; font-variant-numeric:tabular-nums; }
+    .info-val.amber  { color:#fde68a; }
+    .info-val.green  { color:#6ee7b7; }
+    .info-val.pink   { color:#fbcfe8; }
+    .info-val.purple { color:#c4b5fd; }
+    .info-val.red    { color:#fca5a5; }
+    .info-val.blue   { color:#93c5fd; }
+
+    /* ── Best strip ── */
+    .best-strip {
+      display:flex; align-items:center; gap:.75rem;
+      background:var(--surf); border:1px solid var(--border);
+      border-radius:12px; padding:.8rem 1rem; margin-top:1rem;
+      transition:all .3s;
+    }
+    .best-strip.new { background:#190b2e; border-color:#7c3aed; }
+    .best-label  { font-size:.7rem; color:var(--border2); white-space:nowrap; }
+    .best-strip.new .best-label { color:#6d28d9; }
+    .best-chars  { flex:1; font-family:monospace; font-size:1.1rem; font-weight:900;
+                   letter-spacing:.1em; color:var(--best); }
+    .best-len    { font-size:1.6rem; font-weight:800; color:#c4b5fd; }
+
+    /* ── Step log ── */
+    .step-log {
+      background:#060810; border:1px solid var(--surf);
+      border-radius:10px; padding:.8rem 1rem;
+      font-size:.79rem; line-height:1.65; color:#475569;
+      min-height:66px; max-height:125px; overflow-y:auto; margin-top:1rem;
+    }
+    .log-ext  { color:#6ee7b7; font-weight:600; }
+    .log-shr  { color:#fca5a5; font-weight:600; }
+    .log-dom  { color:#fde68a; font-weight:700; }
+    .log-rep  { color:#fbcfe8; font-weight:600; }
+    .log-best { color:#c4b5fd; font-weight:700; }
+    .log-frz  { color:var(--dominant); font-style:italic; }
+    .log-done { color:#22c55e; font-weight:700; }
+
+    .playback-row { display:flex; flex-wrap:wrap; gap:.55rem; margin-top:1.1rem; }
+    .legend { display:flex; flex-wrap:wrap; gap:.65rem; margin-top:.9rem; }
+    .legend-item { display:flex; align-items:center; gap:.35rem; font-size:.71rem; color:#334155; }
+    .legend-dot  { width:10px; height:10px; border-radius:3px; flex-shrink:0; }
+
+    /* ── Bottom panel ── */
+    .insight-grid { display:grid; grid-template-columns:1fr 1fr; gap:.85rem; }
+    @media(max-width:560px){ .insight-grid { grid-template-columns:1fr; } }
+    .ig-box { border-radius:12px; padding:1rem; }
+    .ig-box.dark  { background:#0b0d17; border:1px solid var(--border); }
+    .ig-box.amber { background:#1c1000; border:1px solid #92400e; }
+    .ig-box h3    { font-size:.82rem; margin-bottom:.4rem; }
+    .ig-box.dark  h3 { color:var(--muted); }
+    .ig-box.amber h3 { color:var(--dominant); }
+    .ig-box p  { font-size:.76rem; line-height:1.55; color:#334155; }
+
+    .complexity-row { display:flex; gap:.7rem; flex-wrap:wrap; margin-top:.65rem; }
+    .complexity-badge {
+      display:inline-flex; align-items:center; gap:.4rem;
+      padding:.28rem .75rem; border-radius:999px; font-size:.73rem; font-weight:700;
+    }
+    .badge-time  { background:#052e16; border:1px solid #166534; color:#86efac; }
+    .badge-space { background:#0f172a; border:1px solid #1e293b; color:#64748b; }
+    .badge-dot   { width:7px; height:7px; border-radius:50%; }
+    .badge-time  .badge-dot { background:#22c55e; }
+    .badge-space .badge-dot { background:var(--muted); }
+
+    ::-webkit-scrollbar { width:5px; height:5px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+    @media(max-width:500px) {
+      .char-cell { width:40px; height:48px; font-size:1.1rem; }
+      .bracket-cell { width:40px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Longest Substring after Replacement</h1>
+  <p>Replace at most K letters to make the longest all-same-character substring · Sliding Window</p>
+  <a href="https://leetcode.com/problems/longest-repeating-character-replacement/" target="_blank">↗ LeetCode #424</a>
+</div>
+
+<!-- Config -->
+<div class="card">
+  <div class="card-title">Configuration</div>
+  <div class="controls">
+    <label>String</label>
+    <input type="text" id="strInput" value="aabccbb"/>
+    <label>K</label>
+    <input type="number" id="kInput" value="2" min="0" max="20"/>
+    <button class="btn btn-primary" onclick="applyConfig()">Apply</button>
+  </div>
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.55rem;">
+    <button class="btn btn-ex" onclick='loadEx("aabccbb",2)'>"aabccbb" K=2 → 5</button>
+    <button class="btn btn-ex" onclick='loadEx("abbcb",1)'>"abbcb" K=1 → 4</button>
+    <button class="btn btn-ex" onclick='loadEx("abccde",1)'>"abccde" K=1 → 3</button>
+    <button class="btn btn-ex" onclick='loadEx("aababba",1)'>"aababba" K=1 → 4</button>
+  </div>
+  <div class="speed-row">
+    <label>Speed</label>
+    <input type="range" id="speedRange" min="1" max="5" value="3" oninput="onSpeedChange(this.value)"/>
+    <span id="speedLabel" style="font-size:.73rem;color:var(--border2);">Normal</span>
+  </div>
+</div>
+
+<!-- Visualizer -->
+<div class="card">
+  <div class="phase-banner ph-idle" id="phaseBanner">
+    <div class="ph-dot"></div>
+    <span id="phaseText">Ready — press Play to begin</span>
+  </div>
+
+  <!-- String -->
+  <div class="string-wrap">
+    <div class="string-scene">
+      <div class="string-row"  id="stringRow"></div>
+      <div class="bracket-row" id="bracketRow"></div>
+    </div>
+  </div>
+
+  <!-- Budget panel -->
+  <div class="budget-panel">
+    <div class="budget-title">Replacement Budget Check</div>
+
+    <!-- formula -->
+    <div class="formula-row">
+      <div class="f-group">
+        <div>
+          <div class="f-label">Window Size</div>
+          <div class="f-val f-size" id="fSize">–</div>
+        </div>
+        <div class="f-op">−</div>
+        <div>
+          <div class="f-label">maxRepeat</div>
+          <div class="f-val f-dom" id="fDom">–</div>
+        </div>
+        <div class="f-op">=</div>
+        <div>
+          <div class="f-label">Need to Replace</div>
+          <div class="f-val f-rep" id="fNeed">–</div>
+        </div>
+        <div class="f-op">vs</div>
+        <div>
+          <div class="f-label">K (budget)</div>
+          <div class="f-val f-k" id="fK">–</div>
+        </div>
+        <div class="f-op">→</div>
+      </div>
+      <div class="f-result ok" id="fResult">–</div>
+    </div>
+
+    <!-- slots -->
+    <div class="slots-label">Replacement slots used: <span id="slotsUsedLabel">0</span> / <span id="slotsTotalLabel">2</span></div>
+    <div class="slots-row" id="slotsRow"></div>
+  </div>
+
+  <!-- Freq + Dominant -->
+  <div class="freq-dominant-row">
+    <div class="freq-panel">
+      <div class="card-title" style="margin-bottom:.6rem;">charFrequency in Window</div>
+      <div class="freq-entries" id="freqEntries">
+        <span style="font-size:.72rem;color:var(--border2);">empty</span>
+      </div>
+    </div>
+    <div class="dominant-box" id="dominantBox">
+      <div class="dom-label">Dominant Letter</div>
+      <div class="dom-letter" id="domLetter">–</div>
+      <div class="dom-count"  id="domCount">maxRepeat = –</div>
+      <div class="dom-sub"    id="domSub">keep, replace others</div>
+    </div>
+  </div>
+
+  <!-- maxRepeat frozen insight -->
+  <div class="insight-banner" id="frozenBanner" style="display:none;">
+    <div class="ib-icon">🔒</div>
+    <div class="ib-text">
+      <strong>maxRepeatLetterCount is frozen at <span id="frozenVal">–</span></strong> during shrink.
+      We don't decrease it because no <em>smaller</em> window can beat a window that needed this many replacements.
+      The window shifts forward but the target size stays the same — we can only grow, not settle for less.
+    </div>
+  </div>
+
+  <!-- Info grid -->
+  <div class="info-grid">
+    <div class="info-box">
+      <div class="info-label">windowStart</div>
+      <div class="info-val blue" id="iStart">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">windowEnd</div>
+      <div class="info-val green" id="iEnd">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Window</div>
+      <div class="info-val amber" id="iWin" style="font-family:monospace;font-size:.95rem;">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">maxRepeat</div>
+      <div class="info-val amber" id="iMaxRep">0</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Replacements</div>
+      <div class="info-val pink" id="iNeed">0</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">maxLength</div>
+      <div class="info-val purple" id="iMax">0</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Step</div>
+      <div class="info-val" id="iStep">0 / 0</div>
+    </div>
+  </div>
+
+  <!-- Best strip -->
+  <div class="best-strip" id="bestStrip">
+    <div class="best-label">Longest valid window</div>
+    <div class="best-chars" id="bestChars">–</div>
+    <div class="best-len"   id="bestLen">0</div>
+  </div>
+
+  <!-- Log -->
+  <div class="step-log" id="stepLog">Press <strong>Play</strong> to start the animation.</div>
+
+  <!-- Playback -->
+  <div class="playback-row">
+    <button class="btn btn-play" id="btnPlay" onclick="playPause()">▶ Play</button>
+    <button class="btn btn-reset" onclick="resetAnim()">↺ Reset</button>
+    <button class="btn btn-step"  onclick="stepFwd()">Step →</button>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--dominant)"></div> Dominant letter (keep)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--replace)"></div> Letters to replace</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--shrink)"></div> Over budget — shrink</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--best)"></div> Best window</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#0f111a"></div> Processed</div>
+  </div>
+</div>
+
+<!-- Insight panel -->
+<div class="card">
+  <div class="card-title">Key Insights</div>
+  <div class="insight-grid">
+    <div class="ig-box dark">
+      <h3>The Core Formula</h3>
+      <p>At any window, we want to keep the most-frequent letter and replace everything else.
+         So: <strong style="color:#93c5fd;">replacements needed = windowSize − maxRepeatLetterCount</strong>.
+         If this exceeds K, shrink the window by one from the left.</p>
+    </div>
+    <div class="ig-box amber">
+      <h3>Why maxRepeat Never Decreases 🔒</h3>
+      <p>When shrinking, we don't recompute maxRepeatLetterCount. Why? Because we only care about
+         <em>growing</em> the answer. If no future window reaches the same maxRepeat, the window
+         will just slide forward at constant size — never finding a longer valid window anyway.</p>
+    </div>
+    <div class="ig-box dark">
+      <h3>No Inner While Loop</h3>
+      <p>Unlike previous dynamic-window problems, shrinking is always <strong>exactly one step</strong>
+         — decrement the start char's frequency and move windowStart forward.
+         The window never shrinks below its current size; it either grows or slides.</p>
+    </div>
+    <div class="ig-box amber">
+      <h3>O(26) = O(1) Space</h3>
+      <p>Only lowercase letters are allowed, so the charFrequency map has at most 26 keys —
+         a fixed constant regardless of input size, making space effectively O(1).</p>
+    </div>
+  </div>
+  <div class="complexity-row" style="margin-top:.9rem;">
+    <div class="complexity-badge badge-time"><div class="badge-dot"></div> O(N) time — single pass, one-step shrink</div>
+    <div class="complexity-badge badge-space"><div class="badge-dot"></div> O(26) = O(1) space</div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────
+//  Char colours
+// ─────────────────────────────────────────
+const PALETTE = [
+  '#f59e0b','#34d399','#60a5fa','#f472b6','#a78bfa',
+  '#fb923c','#facc15','#22d3ee','#4ade80','#f87171',
+];
+let charColorMap = {}, colorIdx = 0;
+function colorFor(ch) {
+  if (!charColorMap[ch]) charColorMap[ch] = PALETTE[colorIdx++ % PALETTE.length];
+  return charColorMap[ch];
+}
+
+// ─────────────────────────────────────────
+//  State
+// ─────────────────────────────────────────
+let str  = 'aabccbb';
+let K    = 2;
+let steps= [], currentStep = -1, playing = false, timer = null;
+
+const SPEEDS = {1:1800,2:1200,3:750,4:370,5:150};
+const SPEED_LABELS = {1:'Slow',2:'Relaxed',3:'Normal',4:'Fast',5:'Turbo'};
+
+// ─────────────────────────────────────────
+//  DOM Build
+// ─────────────────────────────────────────
+function buildDOM() {
+  charColorMap = {}; colorIdx = 0;
+  const row  = document.getElementById('stringRow');
+  const brRow= document.getElementById('bracketRow');
+  row.innerHTML = ''; brRow.innerHTML = '';
+
+  [...str].forEach((ch, i) => {
+    const col  = document.createElement('div'); col.className = 'char-col';
+    const idx  = document.createElement('div'); idx.className = 'char-idx'; idx.textContent = i;
+    const cell = document.createElement('div');
+    cell.className = 'char-cell default';
+    cell.id = `cell-${i}`;
+
+    const lbl  = document.createElement('div'); lbl.className = 'ch-letter'; lbl.textContent = ch;
+    const role = document.createElement('div'); role.className = 'ch-role'; role.id = `role-${i}`; role.textContent = '';
+    cell.append(lbl, role);
+    col.append(idx, cell);
+    row.appendChild(col);
+
+    const bc = document.createElement('div'); bc.className = 'bracket-cell';
+    const bl = document.createElement('div'); bl.className = 'bracket-line'; bl.id = `brk-${i}`;
+    bc.appendChild(bl); brRow.appendChild(bc);
+  });
+
+  buildSlots();
+  document.getElementById('slotsTotalLabel').textContent = K;
+  document.getElementById('fK').textContent = K;
+}
+
+function buildSlots() {
+  const row = document.getElementById('slotsRow');
+  row.innerHTML = '';
+  for (let i = 0; i < Math.max(K, 1); i++) {
+    const s = document.createElement('div');
+    s.className = 'slot-box free';
+    s.id = `slot-${i}`;
+    s.textContent = '○';
+    row.appendChild(s);
+  }
+}
+
+// ─────────────────────────────────────────
+//  Step Builder
+// ─────────────────────────────────────────
+function buildSteps() {
+  const frames = [];
+  let windowStart = 0, maxLength = 0, maxRepeatLetterCount = 0;
+  let bestStart = -1, bestEnd = -1;
+  const freq = {};
+
+  for (let windowEnd = 0; windowEnd < str.length; windowEnd++) {
+    const endChar = str[windowEnd];
+    freq[endChar] = (freq[endChar] || 0) + 1;
+
+    const prevMaxRepeat = maxRepeatLetterCount;
+    maxRepeatLetterCount = Math.max(maxRepeatLetterCount, freq[endChar]);
+    const maxRepeatUpdated = maxRepeatLetterCount > prevMaxRepeat;
+
+    const windowSize = windowEnd - windowStart + 1;
+    const needed     = windowSize - maxRepeatLetterCount;
+    const overBudget = needed > K;
+    let didShrink    = false;
+
+    if (overBudget) {
+      const startChar = str[windowStart];
+      freq[startChar]--;
+      windowStart++;
+      didShrink = true;
+      // maxRepeatLetterCount NOT updated
+    }
+
+    const curLen    = windowEnd - windowStart + 1;
+    const isNewBest = curLen > maxLength;
+    if (isNewBest) { maxLength = curLen; bestStart = windowStart; bestEnd = windowEnd; }
+
+    // find dominant char
+    let domChar = '', domCount = 0;
+    for (const [c, n] of Object.entries(freq)) {
+      if (n > domCount) { domCount = n; domChar = c; }
+    }
+
+    frames.push({
+      windowStart, windowEnd,
+      freq: snap(freq),
+      maxRepeatLetterCount,
+      maxRepeatUpdated,
+      windowSize: curLen,
+      needed: curLen - maxRepeatLetterCount,
+      overBudget: false,   // after potential shrink, recompute
+      didShrink,
+      domChar, domCount,
+      maxLength, bestStart, bestEnd,
+      isNewBest,
+      log: buildLog(windowEnd, endChar, maxRepeatLetterCount, maxRepeatUpdated,
+                    curLen, curLen - maxRepeatLetterCount, K, didShrink, isNewBest,
+                    str.slice(windowStart, windowEnd + 1))
+    });
+
+    // mark actual over-budget state before shrink for visual
+    const last = frames[frames.length - 1];
+    last.preShrinkNeeded = (windowEnd - (windowStart - (didShrink ? 1 : 0)) + 1) - maxRepeatLetterCount;
+    last.didShrink = didShrink;
+  }
+  return frames;
+}
+
+function snap(m) { const o={}; for(const[k,v] of Object.entries(m)) o[k]=v; return o; }
+
+function buildLog(we, ch, maxRep, updated, winSize, needed, k, shrunk, newBest, winStr) {
+  const parts = [];
+  parts.push(`<span class="log-ext">+</span> Added <strong class="log-dom">'${ch}'</strong> [${we}].`);
+  if (updated) parts.push(`<span class="log-dom">maxRepeat ↑ to ${maxRep}</span> (new dominant).`);
+  parts.push(`Window size = ${winSize}, need to replace = <span class="log-rep">${winSize} − ${maxRep} = ${needed}</span>.`);
+  if (shrunk) {
+    parts.push(`<span class="log-shr">Over budget (${needed} > K=${k})! Shrink ←</span> windowStart moves right.`);
+    parts.push(`<span class="log-frz">maxRepeat stays frozen at ${maxRep}.</span>`);
+  } else {
+    parts.push(`Within budget ✓ window = <span class="log-dom">"${winStr}"</span> (size ${winSize}).`);
+  }
+  if (newBest) parts.push(`<span class="log-best">🏆 New max = ${winSize}!</span>`);
+  return parts.join(' ');
+}
+
+// ─────────────────────────────────────────
+//  Frame Renderer
+// ─────────────────────────────────────────
+function applyFrame(f) {
+  const { windowStart, windowEnd, freq, maxRepeatLetterCount, maxRepeatUpdated,
+          windowSize, needed, didShrink, domChar, domCount,
+          maxLength, bestStart, bestEnd, isNewBest } = f;
+
+  // reset cells
+  [...str].forEach((_, i) => {
+    const c = document.getElementById(`cell-${i}`);
+    c.className = 'char-cell default';
+    c.style.background = c.style.borderColor = c.style.color = c.style.boxShadow = '';
+    document.getElementById(`role-${i}`).textContent = '';
+    const b = document.getElementById(`brk-${i}`);
+    if (b) b.className = 'bracket-line';
+  });
+
+  // best window
+  if (bestStart >= 0) {
+    for (let i = bestStart; i <= bestEnd; i++) {
+      const c = document.getElementById(`cell-${i}`);
+      c.className = str[i] === domChar ? 'char-cell best-dom' : 'char-cell best-rep';
+      c.style.background = c.style.borderColor = c.style.color = c.style.boxShadow = '';
+      const b = document.getElementById(`brk-${i}`);
+      if (b) b.className = 'bracket-line v best';
+    }
+  }
+
+  // current window
+  let replacedCount = 0;
+  for (let i = windowStart; i <= windowEnd; i++) {
+    const c = document.getElementById(`cell-${i}`);
+    const b = document.getElementById(`brk-${i}`);
+    const isDom = str[i] === domChar;
+
+    if (i === windowStart && didShrink) {
+      // this cell just left — still show it briefly as shrinking context
+    }
+
+    if (isDom) {
+      c.className = 'char-cell dominant';
+      c.style.background = c.style.borderColor = c.style.color = c.style.boxShadow = '';
+      document.getElementById(`role-${i}`).textContent = 'keep';
+    } else {
+      c.className = didShrink && i === windowStart ? 'char-cell shrinking' : 'char-cell replaced';
+      c.style.background = c.style.borderColor = c.style.color = c.style.boxShadow = '';
+      document.getElementById(`role-${i}`).textContent = 'replace';
+      replacedCount++;
+    }
+
+    if (b) b.className = `bracket-line v${didShrink ? ' shr' : ''}`;
+  }
+
+  // cell that got shrunk out
+  if (didShrink) {
+    const leavingIdx = windowStart - 1;
+    const c = document.getElementById(`cell-${leavingIdx}`);
+    if (c && !c.className.includes('best')) {
+      c.className = 'char-cell shrinking';
+      c.style.background = c.style.borderColor = c.style.color = c.style.boxShadow = '';
+    }
+  }
+
+  // faded
+  for (let i = 0; i < windowStart - (didShrink ? 1 : 0); i++) {
+    const c = document.getElementById(`cell-${i}`);
+    if (!c.className.includes('best') && !c.className.includes('shrinking')) {
+      c.className = 'char-cell done';
+      c.style.background = c.style.borderColor = c.style.color = c.style.boxShadow = '';
+    }
+    const b = document.getElementById(`brk-${i}`);
+    if (b && !b.className.includes('best')) b.className = 'bracket-line';
+  }
+
+  // phase banner
+  const banner = document.getElementById('phaseBanner');
+  const ptext  = document.getElementById('phaseText');
+  if (didShrink) {
+    banner.className = 'phase-banner ph-shrink';
+    ptext.textContent = `SHRINK ← Over budget (${needed} replacements > K=${K}) — windowStart moved right`;
+  } else {
+    banner.className = 'phase-banner ph-extend';
+    ptext.textContent = `EXTEND → '${str[windowEnd]}' added. ${needed} replacement${needed !== 1 ? 's' : ''} needed ≤ K=${K} ✓`;
+  }
+
+  // budget panel
+  document.getElementById('fSize').textContent  = windowSize;
+  document.getElementById('fDom').textContent   = maxRepeatLetterCount;
+  document.getElementById('fNeed').textContent  = needed;
+  document.getElementById('fK').textContent     = K;
+  const res = document.getElementById('fResult');
+  if (didShrink) {
+    res.className = 'f-result over';
+    res.textContent = `${needed} > K — shrink!`;
+  } else {
+    res.className = 'f-result ok';
+    res.textContent = `${needed} ≤ K — valid ✓`;
+  }
+
+  // slots
+  const sUsed = document.getElementById('slotsUsedLabel');
+  sUsed.textContent = needed;
+  for (let i = 0; i < K; i++) {
+    const slot = document.getElementById(`slot-${i}`);
+    if (!slot) continue;
+    if (i < needed && didShrink) {
+      slot.className = 'slot-box over'; slot.textContent = '✕';
+    } else if (i < needed) {
+      slot.className = 'slot-box used'; slot.textContent = str.slice(windowStart, windowEnd + 1).split('').filter(c => c !== domChar)[i] || '·';
+    } else {
+      slot.className = 'slot-box free'; slot.textContent = '○';
+    }
+  }
+
+  // frequency
+  renderFreq(freq, domChar, maxRepeatLetterCount);
+
+  // dominant box
+  document.getElementById('domLetter').textContent = domChar || '–';
+  document.getElementById('domCount').textContent  = `maxRepeat = ${maxRepeatLetterCount}`;
+  document.getElementById('domSub').textContent    = didShrink ? '🔒 frozen (not decremented)' : 'keep, replace others';
+
+  // frozen banner
+  const fb = document.getElementById('frozenBanner');
+  if (didShrink) {
+    fb.style.display = 'flex';
+    document.getElementById('frozenVal').textContent = maxRepeatLetterCount;
+  } else {
+    fb.style.display = 'none';
+  }
+
+  // info
+  document.getElementById('iStart').textContent  = windowStart;
+  document.getElementById('iEnd').textContent    = windowEnd;
+  document.getElementById('iWin').textContent    = `"${str.slice(windowStart, windowEnd + 1)}"`;
+  document.getElementById('iMaxRep').textContent = maxRepeatLetterCount;
+  document.getElementById('iNeed').textContent   = needed;
+  document.getElementById('iMax').textContent    = maxLength;
+  document.getElementById('iStep').textContent   = `${currentStep + 1} / ${steps.length}`;
+
+  // best strip
+  const strip = document.getElementById('bestStrip');
+  strip.className = 'best-strip' + (isNewBest ? ' new' : '');
+  document.getElementById('bestChars').textContent =
+    bestStart >= 0 ? `"${str.slice(bestStart, bestEnd + 1)}"` : '–';
+  document.getElementById('bestLen').textContent = maxLength || '0';
+
+  document.getElementById('stepLog').innerHTML = f.log;
+}
+
+function renderFreq(freq, domChar, maxRep) {
+  const container = document.getElementById('freqEntries');
+  if (Object.keys(freq).length === 0) {
+    container.innerHTML = '<span style="font-size:.72rem;color:var(--border2);">empty</span>';
+    return;
+  }
+  const maxCnt = Math.max(...Object.values(freq), 1);
+  container.innerHTML = '';
+  for (const [ch, cnt] of Object.entries(freq)) {
+    const col = colorFor(ch);
+    const isDom = ch === domChar;
+    const entry = document.createElement('div');
+    entry.className = `freq-entry ${isDom ? 'dom-entry' : 'normal'}`;
+    entry.style.borderColor = isDom ? 'var(--dominant)' : col + '55';
+    entry.style.background  = isDom ? '#1c1000' : col + '18';
+
+    const wrap = document.createElement('div');
+    wrap.style.display = 'flex';
+    wrap.style.flexDirection = 'column';
+
+    const top = document.createElement('div');
+    top.style.display = 'flex';
+    top.style.alignItems = 'center';
+    top.style.gap = '4px';
+
+    const charSp = document.createElement('span');
+    charSp.className = 'fe-char';
+    charSp.style.color = isDom ? 'var(--dominant)' : col;
+    charSp.textContent = `'${ch}'`;
+
+    const x = document.createElement('span');
+    x.className = 'fe-x';
+    x.textContent = '×';
+
+    const cntSp = document.createElement('span');
+    cntSp.className = 'fe-cnt';
+    cntSp.textContent = cnt;
+
+    top.append(charSp, x, cntSp);
+
+    const bar = document.createElement('div');
+    bar.className = 'fe-bar';
+    bar.style.background = isDom ? 'var(--dominant)' : col;
+    bar.style.width = `${(cnt / maxCnt) * 50}px`;
+
+    wrap.append(top, bar);
+    entry.appendChild(wrap);
+    container.appendChild(entry);
+  }
+}
+
+// ─────────────────────────────────────────
+//  Playback
+// ─────────────────────────────────────────
+function playPause() {
+  if (playing) { clearInterval(timer); playing = false; setBtnPlay(false); }
+  else {
+    if (currentStep >= steps.length - 1) resetAnim();
+    playing = true; setBtnPlay(true);
+    advance(); timer = setInterval(advance, getDelay());
+  }
+}
+function advance() {
+  if (currentStep < steps.length - 1) { currentStep++; applyFrame(steps[currentStep]); }
+  else {
+    clearInterval(timer); playing = false; setBtnPlay(false);
+    const f = steps[steps.length - 1];
+    document.getElementById('stepLog').innerHTML +=
+      ` <span class="log-done">✓ Answer = ${f.maxLength}</span>`;
+    document.getElementById('phaseBanner').className = 'phase-banner ph-extend';
+    document.getElementById('phaseText').textContent =
+      `Done! Longest = "${str.slice(f.bestStart, f.bestEnd + 1)}" → ${f.maxLength}`;
+  }
+}
+function stepFwd() {
+  if (playing) { clearInterval(timer); playing = false; setBtnPlay(false); }
+  if (currentStep < steps.length - 1) { currentStep++; applyFrame(steps[currentStep]); }
+}
+function resetAnim() {
+  clearInterval(timer); playing = false; setBtnPlay(false);
+  currentStep = -1; buildDOM();
+  ['iStart','iEnd','iWin','iMaxRep','iNeed'].forEach(id => document.getElementById(id).textContent = '–');
+  document.getElementById('iMax').textContent   = '0';
+  document.getElementById('iStep').textContent  = `0 / ${steps.length}`;
+  document.getElementById('stepLog').textContent = 'Press Play to start the animation.';
+  document.getElementById('freqEntries').innerHTML = '<span style="font-size:.72rem;color:var(--border2);">empty</span>';
+  document.getElementById('bestChars').textContent = '–';
+  document.getElementById('bestLen').textContent   = '0';
+  document.getElementById('bestStrip').className   = 'best-strip';
+  document.getElementById('phaseBanner').className = 'phase-banner ph-idle';
+  document.getElementById('phaseText').textContent = 'Ready — press Play to begin';
+  document.getElementById('frozenBanner').style.display = 'none';
+  document.getElementById('domLetter').textContent = '–';
+  document.getElementById('domCount').textContent  = 'maxRepeat = –';
+  document.getElementById('domSub').textContent    = 'keep, replace others';
+  ['fSize','fDom','fNeed'].forEach(id => document.getElementById(id).textContent = '–');
+  document.getElementById('fResult').className = 'f-result ok';
+  document.getElementById('fResult').textContent = '–';
+  document.getElementById('slotsUsedLabel').textContent = '0';
+}
+function setBtnPlay(p) {
+  const btn = document.getElementById('btnPlay');
+  btn.className   = p ? 'btn btn-pause' : 'btn btn-play';
+  btn.textContent = p ? '⏸ Pause' : '▶ Play';
+}
+function getDelay() { return SPEEDS[document.getElementById('speedRange').value] || 750; }
+function onSpeedChange(v) {
+  document.getElementById('speedLabel').textContent = SPEED_LABELS[v];
+  if (playing) { clearInterval(timer); timer = setInterval(advance, getDelay()); }
+}
+
+// ─────────────────────────────────────────
+//  Config
+// ─────────────────────────────────────────
+function applyConfig() {
+  const s = document.getElementById('strInput').value.trim().replace(/\s/g,'');
+  const k = parseInt(document.getElementById('kInput').value);
+  if (!s.length || isNaN(k) || k < 0) return;
+  str = s; K = k; rebuildAll();
+}
+function loadEx(s, k) {
+  str = s; K = k;
+  document.getElementById('strInput').value = s;
+  document.getElementById('kInput').value   = k;
+  rebuildAll();
+}
+function rebuildAll() { steps = buildSteps(); resetAnim(); }
+
+rebuildAll();
+</script>
+</body>
+</html>
