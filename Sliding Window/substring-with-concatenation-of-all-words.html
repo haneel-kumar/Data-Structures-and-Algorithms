@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Words Concatenation – Sliding Window</title>
+<style>
+  :root {
+    --bg:#0f1117; --surface:#1a1d27; --surface2:#22263a;
+    --border:#2e3250; --text:#e2e8f0; --muted:#64748b;
+    --purple:#8b5cf6; --purple-dim:#3b2e6e; --purple-glow:rgba(139,92,246,.25);
+    --blue:#3b82f6; --blue-dim:#1e3a5f;
+    --green:#22c55e; --green-dim:#14532d; --green-glow:rgba(34,197,94,.25);
+    --amber:#f59e0b; --amber-dim:#78350f;
+    --red:#ef4444; --red-dim:#7f1d1d;
+    --cyan:#06b6d4; --cyan-dim:#164e63;
+    --gold:#eab308; --gold-dim:#713f12;
+    --rose:#f43f5e; --rose-dim:#881337;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+
+  /* Header */
+  .header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  .header h1{font-size:1.15rem;font-weight:700;}
+  .header h1 span{color:var(--cyan);}
+  .badge-row{display:flex;gap:8px;flex-wrap:wrap;}
+  .badge{padding:3px 10px;border-radius:99px;font-size:.72rem;font-weight:600;letter-spacing:.04em;}
+  .badge-hard{background:#3b0764;color:#d8b4fe;}
+  .badge-lc{background:var(--surface2);color:var(--muted);}
+  .badge-pat{background:var(--blue-dim);color:#93c5fd;}
+
+  /* Breadcrumb */
+  .breadcrumb{padding:10px 24px;display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--muted);flex-wrap:wrap;}
+  .crumb{padding:3px 10px;border-radius:6px;background:var(--surface);border:1px solid var(--border);}
+  .crumb.active{background:var(--cyan-dim);border-color:var(--cyan);color:#67e8f9;}
+  .arrow{color:var(--border);}
+
+  /* Layout */
+  .main{max-width:1140px;margin:0 auto;padding:16px 20px;display:flex;flex-direction:column;gap:14px;}
+
+  /* Cards */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;}
+  .card h3{font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;}
+
+  /* Diff strip */
+  .diff-strip{background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--cyan);border-radius:10px;padding:12px 18px;font-size:.81rem;color:#67e8f9;line-height:1.7;}
+  .diff-strip strong{color:var(--cyan);}
+  .diff-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;}
+  @media(max-width:640px){.diff-grid{grid-template-columns:1fr;}}
+  .diff-cell{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:.78rem;color:var(--text);}
+  .diff-cell .dt{font-weight:700;margin-bottom:4px;}
+
+  /* Config */
+  .config-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;}
+  .config-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+  .config-field{display:flex;flex-direction:column;gap:5px;}
+  .config-field label{font-size:.78rem;color:var(--muted);}
+  .config-field input{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:7px 11px;font-size:.9rem;width:220px;font-family:monospace;}
+  .config-field input:focus{outline:none;border-color:var(--cyan);}
+  .btn{padding:8px 18px;border-radius:8px;border:none;cursor:pointer;font-size:.85rem;font-weight:600;transition:opacity .15s;}
+  .btn:hover{opacity:.85;}
+  .btn-apply{background:var(--cyan);color:#000;}
+  .btn-ex{background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:6px 12px;font-size:.78rem;}
+  .examples{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+
+  /* Two-col */
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media(max-width:700px){.two-col{grid-template-columns:1fr;}}
+
+  /* ── String display ── */
+  .str-wrap{overflow-x:auto;padding-bottom:4px;}
+  .str-row{display:flex;gap:3px;min-width:max-content;}
+  .ch-cell{width:32px;height:44px;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:.9rem;font-weight:700;font-family:monospace;background:var(--surface2);border:2px solid var(--border);transition:all .2s;position:relative;}
+  .ch-cell .ci{font-size:.55rem;color:var(--muted);font-weight:400;position:absolute;top:2px;}
+  .ch-cell .cc{margin-top:8px;}
+  /* word boundary gap – handled via margin-right on last char of each word group */
+  .ch-cell.word-boundary{margin-right:6px;}
+  .ch-cell.in-window{border-color:var(--purple);background:var(--purple-dim);}
+  .ch-cell.slot-0{border-color:#3b82f6 !important;background:#1e3a5f !important;}
+  .ch-cell.slot-1{border-color:#8b5cf6 !important;background:#3b2e6e !important;}
+  .ch-cell.slot-2{border-color:#06b6d4 !important;background:#164e63 !important;}
+  .ch-cell.slot-matched{border-color:var(--green) !important;background:var(--green-dim) !important;}
+  .ch-cell.slot-invalid{border-color:var(--red) !important;background:var(--red-dim) !important;}
+  .ch-cell.slot-dup{border-color:var(--amber) !important;background:var(--amber-dim) !important;}
+  .ptr-row{display:flex;gap:3px;min-width:max-content;margin-top:2px;}
+  .p-cell{width:32px;height:16px;display:flex;align-items:center;justify-content:center;font-size:.55rem;font-weight:700;color:transparent;}
+  .p-cell.si{color:var(--cyan);}
+  .p-cell.nwi{color:var(--amber);}
+  .p-cell.word-boundary{margin-right:6px;}
+
+  /* ── Outer loop position ── */
+  .outer-panel{display:flex;flex-direction:column;gap:8px;}
+  .outer-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .outer-label{font-size:.8rem;color:var(--muted);min-width:80px;}
+  .outer-val{font-size:1.4rem;font-weight:800;color:var(--cyan);font-family:monospace;}
+  .outer-progress{display:flex;gap:3px;flex-wrap:wrap;margin-top:4px;}
+  .outer-pip{width:20px;height:20px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:.6rem;color:var(--muted);transition:all .2s;}
+  .outer-pip.current{background:var(--cyan-dim);border-color:var(--cyan);color:#67e8f9;font-weight:700;}
+  .outer-pip.done-found{background:var(--green-dim);border-color:var(--green);color:#86efac;}
+  .outer-pip.done-miss{background:var(--surface2);border-color:var(--muted);color:var(--muted);}
+
+  /* ── Word slots ── */
+  .slots-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;}
+  .word-slot{border-radius:10px;border:2px solid var(--border);background:var(--surface2);min-width:70px;padding:8px 12px;display:flex;flex-direction:column;align-items:center;gap:4px;transition:all .25s;}
+  .word-slot .ws-j{font-size:.65rem;color:var(--muted);}
+  .word-slot .ws-word{font-size:1.05rem;font-weight:800;font-family:monospace;letter-spacing:.05em;min-height:26px;display:flex;align-items:center;}
+  .word-slot .ws-state{font-size:.65rem;font-weight:700;letter-spacing:.04em;}
+  .word-slot.slot-pending{}
+  .word-slot.slot-active{border-color:var(--amber);background:var(--amber-dim);}
+  .word-slot.slot-active .ws-word{color:#fcd34d;}
+  .word-slot.slot-matched{border-color:var(--green);background:var(--green-dim);}
+  .word-slot.slot-matched .ws-word{color:#86efac;}
+  .word-slot.slot-matched .ws-state{color:var(--green);}
+  .word-slot.slot-invalid{border-color:var(--red);background:var(--red-dim);}
+  .word-slot.slot-invalid .ws-word{color:#fca5a5;}
+  .word-slot.slot-invalid .ws-state{color:var(--red);}
+  .word-slot.slot-dup{border-color:var(--amber);background:var(--amber-dim);}
+  .word-slot.slot-dup .ws-word{color:#fcd34d;}
+  .word-slot.slot-dup .ws-state{color:var(--amber);}
+
+  /* ── HashMaps ── */
+  .hmap-wrap{display:flex;gap:6px;flex-wrap:wrap;}
+  .hmap-entry{display:flex;flex-direction:column;align-items:center;gap:0;}
+  .hmap-key{padding:3px 10px;border-radius:6px 6px 0 0;font-size:.82rem;font-weight:700;font-family:monospace;min-width:50px;text-align:center;}
+  .hmap-val{padding:3px 10px;border-radius:0 0 6px 6px;font-size:.85rem;font-weight:700;background:var(--surface2);border:1px solid var(--border);border-top:none;min-width:50px;text-align:center;transition:background .2s,color .2s;}
+  .hmap-val.seen-eq{background:var(--green-dim);color:#86efac;}
+  .hmap-val.seen-over{background:var(--red-dim);color:#fca5a5;}
+  .hmap-val.seen-under{color:var(--text);}
+  .hmap-val.seen-zero{color:var(--muted);}
+
+  /* ── Phase banner ── */
+  .phase-banner{padding:9px 14px;border-radius:8px;font-size:.83rem;font-weight:700;letter-spacing:.04em;display:flex;align-items:center;gap:8px;}
+  .phase-banner .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+  .ph-init{background:var(--surface2);color:var(--muted);}
+  .ph-init .dot{background:var(--muted);}
+  .ph-outer{background:var(--cyan-dim);color:#67e8f9;}
+  .ph-outer .dot{background:var(--cyan);}
+  .ph-extract{background:var(--amber-dim);color:#fcd34d;}
+  .ph-extract .dot{background:var(--amber);}
+  .ph-match{background:var(--green-dim);color:#86efac;}
+  .ph-match .dot{background:var(--green);}
+  .ph-invalid{background:var(--red-dim);color:#fca5a5;}
+  .ph-invalid .dot{background:var(--red);}
+  .ph-dup{background:#451a03;color:#fed7aa;}
+  .ph-dup .dot{background:#f97316;}
+  .ph-found{background:#3b0764;color:#e9d5ff;}
+  .ph-found .dot{background:var(--purple);animation:blink 1s infinite;}
+  .ph-done{background:var(--green-dim);color:#86efac;}
+  .ph-done .dot{background:var(--green);}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+  /* ── Results strip ── */
+  .results-section{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;}
+  .results-section h3{font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+  .res-count{background:var(--cyan-dim);color:#67e8f9;padding:2px 8px;border-radius:99px;font-size:.75rem;font-weight:700;}
+  .res-chips{display:flex;gap:8px;flex-wrap:wrap;min-height:44px;align-items:center;}
+  .res-chip{background:var(--purple-dim);border:2px solid var(--purple);border-radius:8px;padding:5px 12px;display:flex;flex-direction:column;align-items:center;gap:2px;animation:chipIn .3s ease-out;}
+  @keyframes chipIn{from{opacity:0;transform:scale(.8) translateY(6px)}to{opacity:1;transform:scale(1) translateY(0)}}
+  .res-chip.new-chip{border-color:var(--green);background:var(--green-dim);}
+  .chip-idx{font-size:.72rem;color:var(--muted);}
+  .chip-str{font-size:.9rem;font-weight:700;font-family:monospace;color:#e9d5ff;}
+  .res-chip.new-chip .chip-str{color:#86efac;}
+  .no-res{color:var(--muted);font-size:.85rem;font-style:italic;}
+
+  /* ── Break reason ── */
+  .break-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 13px;font-size:.78rem;line-height:1.7;min-height:52px;}
+
+  /* ── Log ── */
+  .log-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 13px;font-size:.78rem;color:var(--muted);min-height:38px;font-family:monospace;line-height:1.6;}
+
+  /* ── Controls ── */
+  .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .ctrl-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 16px;cursor:pointer;font-size:.85rem;font-weight:600;transition:background .15s;}
+  .ctrl-btn:hover{background:var(--border);}
+  .ctrl-btn:disabled{opacity:.35;cursor:default;}
+  .ctrl-btn.playing{background:var(--cyan-dim);border-color:var(--cyan);color:#67e8f9;}
+  .speed-wrap{display:flex;align-items:center;gap:8px;margin-left:auto;}
+  .speed-wrap label{font-size:.78rem;color:var(--muted);}
+  .speed-wrap input{width:100px;accent-color:var(--cyan);}
+  .step-counter{font-size:.8rem;color:var(--muted);}
+
+  /* Legend */
+  .legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;}
+  .leg-item{display:flex;align-items:center;gap:5px;font-size:.72rem;color:var(--muted);}
+  .leg-box{width:13px;height:13px;border-radius:3px;border:2px solid;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Words <span>Concatenation</span></h1>
+  <div class="badge-row">
+    <span class="badge badge-hard">Hard</span>
+    <span class="badge badge-lc">LC #30</span>
+    <span class="badge badge-pat">Sliding Window</span>
+  </div>
+</div>
+
+<div class="breadcrumb">
+  <span class="crumb">Fixed Window</span><span class="arrow">›</span>
+  <span class="crumb">Permutation</span><span class="arrow">›</span>
+  <span class="crumb">Anagrams</span><span class="arrow">›</span>
+  <span class="crumb">Min Window Substring</span><span class="arrow">›</span>
+  <span class="crumb active">Words Concatenation</span>
+</div>
+
+<div class="main">
+
+  <!-- Diff strip -->
+  <div class="diff-strip">
+    <strong>What makes this problem different from all previous ones:</strong>
+    <div class="diff-grid">
+      <div class="diff-cell">
+        <div class="dt" style="color:var(--purple);">Previous problems (char-level)</div>
+        Unit = single character<br>
+        1 HashMap of char → count<br>
+        One pass: O(N)<br>
+        True sliding window (shift one char)
+      </div>
+      <div class="diff-cell">
+        <div class="dt" style="color:var(--cyan);">Words Concatenation ← this</div>
+        Unit = <strong>word</strong> (multiple chars)<br>
+        <strong>Two HashMaps</strong>: wordFreq (static) + wordsSeen (resets each i)<br>
+        Two nested loops: O(N × M × wordLen)<br>
+        <strong>Restart</strong> from each position i — not a pure sliding window
+      </div>
+    </div>
+  </div>
+
+  <!-- Config -->
+  <div class="config-card">
+    <h3>Configuration</h3>
+    <div class="config-row">
+      <div class="config-field">
+        <label>String</label>
+        <input id="inp-str" type="text" value="catfoxcat" />
+      </div>
+      <div class="config-field">
+        <label>Words (comma-separated)</label>
+        <input id="inp-words" type="text" value="cat,fox" />
+      </div>
+      <button class="btn btn-apply" onclick="applyConfig()">Apply</button>
+    </div>
+    <div class="examples">
+      <button class="btn btn-ex" onclick="loadEx('catfoxcat','cat,fox')">catfoxcat / [cat,fox] → [0,3]</button>
+      <button class="btn btn-ex" onclick="loadEx('catcatfoxfox','cat,fox')">catcatfoxfox / [cat,fox] → [3]</button>
+      <button class="btn btn-ex" onclick="loadEx('barfoothefoobarman','foo,bar')">barfoo…barman / [foo,bar] → [0,9]</button>
+      <button class="btn btn-ex" onclick="loadEx('wordgoodgoodgoodbestword','word,good,best,word')">word…word / [word,good,best,word] → []</button>
+    </div>
+  </div>
+
+  <!-- String + outer loop position -->
+  <div class="card">
+    <h3>String — each position i tries to match all words</h3>
+    <div class="str-wrap">
+      <div class="str-row" id="str-row"></div>
+      <div class="ptr-row" id="ptr-row"></div>
+    </div>
+    <div class="legend">
+      <div class="leg-item"><div class="leg-box" style="background:var(--purple-dim);border-color:var(--purple);"></div> full window (i…i+windowSize−1)</div>
+      <div class="leg-item"><div class="leg-box" style="background:var(--green-dim);border-color:var(--green);"></div> matched word slot</div>
+      <div class="leg-item"><div class="leg-box" style="background:var(--red-dim);border-color:var(--red);"></div> invalid word</div>
+      <div class="leg-item"><div class="leg-box" style="background:var(--amber-dim);border-color:var(--amber);"></div> duplicate word</div>
+    </div>
+  </div>
+
+  <!-- Outer loop progress + Word slots -->
+  <div class="two-col">
+    <div class="card">
+      <h3>Outer Loop (i) — starting position</h3>
+      <div class="outer-panel">
+        <div class="outer-row">
+          <span class="outer-label">i =</span>
+          <span class="outer-val" id="outer-i">—</span>
+          <span style="color:var(--muted);font-size:.8rem;" id="outer-range-label"></span>
+        </div>
+        <div style="font-size:.75rem;color:var(--muted);margin-top:2px;">Each i restarts <code>wordsSeen = {}</code> from scratch</div>
+        <div class="outer-progress" id="outer-progress"></div>
+        <div class="phase-banner ph-init" id="phase-banner" style="margin-top:6px;">
+          <div class="dot"></div>
+          <span id="phase-text">Ready</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Current Attempt — word slots (j = 0 … wordCount−1)</h3>
+      <div id="slots-wrap">
+        <div style="color:var(--muted);font-size:.82rem;font-style:italic;">Word slots appear when algorithm starts.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Two HashMaps -->
+  <div class="two-col">
+    <div class="card">
+      <h3>wordFreq — from words list (static)</h3>
+      <div class="hmap-wrap" id="wordfreq-map"></div>
+      <div style="margin-top:8px;font-size:.73rem;color:var(--muted);">Initialized once. Never changes.</div>
+    </div>
+    <div class="card">
+      <h3>wordsSeen — current attempt (resets each i)</h3>
+      <div class="hmap-wrap" id="wordsseen-map"></div>
+      <div style="margin-top:8px;font-size:.73rem;color:var(--muted);" id="seen-note">Resets to {} at each new i.</div>
+    </div>
+  </div>
+
+  <!-- Break reason + Results -->
+  <div class="two-col">
+    <div class="card">
+      <h3>Break Condition</h3>
+      <div class="break-box" id="break-box">
+        <span style="color:var(--muted);">No break yet.</span>
+      </div>
+      <div style="margin-top:8px;font-size:.73rem;color:var(--muted);">
+        Two reasons to <strong>break</strong> the inner loop early:<br>
+        1. Word not found in wordFreq at all.<br>
+        2. wordsSeen[word] exceeds wordFreq[word] (duplicate).
+      </div>
+    </div>
+
+    <div class="results-section">
+      <h3>Concatenation Positions Found <span class="res-count" id="res-count">0</span></h3>
+      <div class="res-chips" id="res-chips">
+        <span class="no-res" id="no-res-text">No results yet…</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="card">
+    <h3>Step Log</h3>
+    <div class="log-box" id="log-box">Press Play or Step Forward to begin.</div>
+  </div>
+
+  <!-- Controls -->
+  <div class="card" style="padding:12px 18px;">
+    <div class="controls">
+      <button class="ctrl-btn" id="btn-reset" onclick="resetAnim()">↺ Reset</button>
+      <button class="ctrl-btn" id="btn-step-b" onclick="stepBack()" disabled>‹ Back</button>
+      <button class="ctrl-btn" id="btn-play" onclick="playPause()">▶ Play</button>
+      <button class="ctrl-btn" id="btn-step-f" onclick="stepFwd()">Step ›</button>
+      <span class="step-counter" id="step-counter">Step 0 / 0</span>
+      <div class="speed-wrap">
+        <label>Speed</label>
+        <input type="range" id="speed-range" min="100" max="1500" value="700" step="100">
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let str = 'catfoxcat', words = ['cat','fox'];
+let steps = [], currentStep = -1, playing = false, timer = null;
+
+// ─── Slot color palette (by word index in unique words list) ──────────────────
+const WORD_COLORS = [
+  { bg:'#1e3a5f', border:'#3b82f6', text:'#93c5fd' },
+  { bg:'#3b2e6e', border:'#8b5cf6', text:'#c4b5fd' },
+  { bg:'#164e63', border:'#06b6d4', text:'#67e8f9' },
+  { bg:'#78350f', border:'#f59e0b', text:'#fcd34d' },
+  { bg:'#14532d', border:'#22c55e', text:'#86efac' },
+  { bg:'#7f1d1d', border:'#ef4444', text:'#fca5a5' },
+];
+let wordColorMap = {};
+
+function assignColors() {
+  wordColorMap = {};
+  [...new Set(words)].forEach((w, i) => { wordColorMap[w] = WORD_COLORS[i % WORD_COLORS.length]; });
+}
+function colOfWord(w) { return wordColorMap[w] || null; }
+
+// ─── Build DOM ─────────────────────────────────────────────────────────────────
+function buildDOM() {
+  assignColors();
+  const wordLength = words[0].length;
+  const wordCount  = words.length;
+  const windowSize = wordCount * wordLength;
+  const outerLimit = str.length - windowSize + 1;
+
+  // String cells
+  const sr = document.getElementById('str-row');
+  const pr = document.getElementById('ptr-row');
+  sr.innerHTML = ''; pr.innerHTML = '';
+  for (let i = 0; i < str.length; i++) {
+    const cell = document.createElement('div');
+    cell.className = 's-cell ch-cell' + (((i + 1) % wordLength === 0) ? ' word-boundary' : '');
+    cell.id = `sc-${i}`;
+    cell.innerHTML = `<span class="ci">${i}</span><span class="cc">${str[i]}</span>`;
+    sr.appendChild(cell);
+    const pc = document.createElement('div');
+    pc.className = 'p-cell' + (((i + 1) % wordLength === 0) ? ' word-boundary' : '');
+    pc.id = `pc-${i}`;
+    pr.appendChild(pc);
+  }
+
+  // WordFreq map (static)
+  renderWordFreqMap();
+
+  // wordsSeen (empty)
+  renderWordsSeen({});
+
+  // Outer progress pips
+  const op = document.getElementById('outer-progress');
+  op.innerHTML = '';
+  for (let i = 0; i < Math.max(0, outerLimit); i++) {
+    const pip = document.createElement('div');
+    pip.className = 'outer-pip';
+    pip.id = `pip-${i}`;
+    pip.textContent = i;
+    op.appendChild(pip);
+  }
+  document.getElementById('outer-range-label').textContent =
+    `(0 to ${Math.max(0, outerLimit - 1)})`;
+
+  // Slots
+  renderSlots([], -1, wordCount);
+
+  // Reset panels
+  document.getElementById('outer-i').textContent = '—';
+  document.getElementById('break-box').innerHTML = '<span style="color:var(--muted);">No break yet.</span>';
+  document.getElementById('res-chips').innerHTML = '<span class="no-res" id="no-res-text">No results yet…</span>';
+  document.getElementById('res-count').textContent = '0';
+  setPhase('ph-init', 'Ready — press Play or Step');
+  document.getElementById('log-box').textContent = 'Press Play or Step Forward to begin.';
+  document.getElementById('step-counter').textContent = `Step 0 / ${steps.length}`;
+}
+
+function renderWordFreqMap() {
+  const wf = document.getElementById('wordfreq-map');
+  wf.innerHTML = '';
+  const freq = {};
+  words.forEach(w => { freq[w] = (freq[w] || 0) + 1; });
+  Object.entries(freq).forEach(([w, cnt]) => {
+    const col = colOfWord(w) || WORD_COLORS[0];
+    const e = document.createElement('div');
+    e.className = 'hmap-entry';
+    e.innerHTML = `
+      <div class="hmap-key" style="background:${col.bg};border:1px solid ${col.border};color:${col.text}">${w}</div>
+      <div class="hmap-val">${cnt}</div>`;
+    wf.appendChild(e);
+  });
+}
+
+function renderWordsSeen(seen) {
+  const ws = document.getElementById('wordsseen-map');
+  ws.innerHTML = '';
+  const wordFreq = {};
+  words.forEach(w => { wordFreq[w] = (wordFreq[w] || 0) + 1; });
+  const seenWords = Object.keys(seen);
+  if (seenWords.length === 0) {
+    ws.innerHTML = '<span style="color:var(--muted);font-size:.82rem;font-style:italic;">{} — empty</span>';
+    return;
+  }
+  seenWords.forEach(w => {
+    const col = colOfWord(w) || WORD_COLORS[0];
+    const cnt = seen[w];
+    const req = wordFreq[w] || 0;
+    let valClass = cnt > req ? 'seen-over' : cnt === req ? 'seen-eq' : cnt === 0 ? 'seen-zero' : 'seen-under';
+    const e = document.createElement('div');
+    e.className = 'hmap-entry';
+    e.innerHTML = `
+      <div class="hmap-key" style="background:${col.bg};border:1px solid ${col.border};color:${col.text}">${w}</div>
+      <div class="hmap-val ${valClass}">${cnt}</div>`;
+    ws.appendChild(e);
+  });
+}
+
+function renderSlots(slotStates, activeJ, wordCount) {
+  const sw = document.getElementById('slots-wrap');
+  if (wordCount === 0) { sw.innerHTML = ''; return; }
+  sw.innerHTML = '<div class="slots-row" id="slots-row"></div>';
+  const sr = document.getElementById('slots-row');
+  for (let j = 0; j < wordCount; j++) {
+    const st = slotStates[j] || { state: 'pending', word: '?' };
+    const div = document.createElement('div');
+    let slotCls = 'word-slot slot-pending';
+    let stateLabel = '';
+    if (j === activeJ) { slotCls = 'word-slot slot-active'; stateLabel = '◉ extracting'; }
+    else if (st.state === 'matched') { slotCls = 'word-slot slot-matched'; stateLabel = '✓ matched'; }
+    else if (st.state === 'invalid') { slotCls = 'word-slot slot-invalid'; stateLabel = '✗ not found'; }
+    else if (st.state === 'dup')     { slotCls = 'word-slot slot-dup';     stateLabel = '✗ duplicate'; }
+    div.className = slotCls;
+    div.innerHTML = `
+      <div class="ws-j">slot j=${j}</div>
+      <div class="ws-word">${j < slotStates.length ? st.word : '…'}</div>
+      <div class="ws-state">${stateLabel}</div>`;
+    sr.appendChild(div);
+  }
+}
+
+// ─── Build steps ──────────────────────────────────────────────────────────────
+function buildSteps() {
+  const frames = [];
+  if (words.length === 0 || words[0].length === 0) return frames;
+
+  const wordFreq = {};
+  words.forEach(w => { wordFreq[w] = (wordFreq[w] || 0) + 1; });
+
+  const wordCount  = words.length;
+  const wordLength = words[0].length;
+  const windowSize = wordCount * wordLength;
+  const outerLimit = str.length - windowSize + 1;
+  const results    = [];
+
+  frames.push({
+    i:-1, j:-1, wordsSeen:{}, slotStates:[], results:[],
+    phase:'ph-init', phaseText:'Initialized wordFreq from words list',
+    log:`wordFreq = ${JSON.stringify(wordFreq)} | wordCount=${wordCount}, wordLength=${wordLength}, windowSize=${windowSize}`,
+    breakReason:null, newFound:false, activeJ:-1, done:false,
+  });
+
+  for (let i = 0; i < outerLimit; i++) {
+    const wordsSeen = {};
+    const slotStates = [];
+
+    frames.push({
+      i, j:-1, wordsSeen:{}, slotStates:[], results:[...results],
+      phase:'ph-outer', phaseText:`Start attempt at i=${i} — wordsSeen reset to {}`,
+      log:`--- Outer i=${i}: checking window str[${i}..${i+windowSize-1}] = "${str.slice(i,i+windowSize)}"`,
+      breakReason:null, newFound:false, activeJ:-1, done:false,
+    });
+
+    let broke = false;
+    for (let j = 0; j < wordCount; j++) {
+      const nextWordIndex = i + j * wordLength;
+      const word = str.substring(nextWordIndex, nextWordIndex + wordLength);
+
+      // Extract step
+      frames.push({
+        i, j, wordsSeen:{...wordsSeen}, slotStates:[...slotStates],
+        results:[...results],
+        phase:'ph-extract',
+        phaseText:`Extract slot j=${j}: str[${nextWordIndex}..${nextWordIndex+wordLength-1}] = "${word}"`,
+        log:`j=${j}: nextWordIndex=${nextWordIndex}, extract "${word}" from str`,
+        breakReason:null, newFound:false, activeJ:j,
+        extractedWord:word, extractedStart:nextWordIndex, done:false,
+      });
+
+      // Check not in wordFreq
+      if (!(word in wordFreq)) {
+        slotStates.push({ word, state:'invalid' });
+        frames.push({
+          i, j, wordsSeen:{...wordsSeen}, slotStates:[...slotStates],
+          results:[...results],
+          phase:'ph-invalid',
+          phaseText:`"${word}" not in wordFreq → BREAK`,
+          log:`"${word}" is not in the words list → inner loop breaks`,
+          breakReason:'not-in-freq', breakWord:word, newFound:false, activeJ:j, done:false,
+        });
+        broke = true;
+        break;
+      }
+
+      wordsSeen[word] = (wordsSeen[word] || 0) + 1;
+
+      // Check duplicate
+      if (wordsSeen[word] > (wordFreq[word] || 0)) {
+        slotStates.push({ word, state:'dup' });
+        frames.push({
+          i, j, wordsSeen:{...wordsSeen}, slotStates:[...slotStates],
+          results:[...results],
+          phase:'ph-dup',
+          phaseText:`"${word}" seen ${wordsSeen[word]}× but only needed ${wordFreq[word]}× → BREAK`,
+          log:`wordsSeen["${word}"]=${wordsSeen[word]} > wordFreq["${word}"]=${wordFreq[word]} → duplicate break`,
+          breakReason:'duplicate', breakWord:word, newFound:false, activeJ:j, done:false,
+        });
+        broke = true;
+        break;
+      }
+
+      slotStates.push({ word, state:'matched' });
+      frames.push({
+        i, j, wordsSeen:{...wordsSeen}, slotStates:[...slotStates],
+        results:[...results],
+        phase:'ph-match',
+        phaseText:`"${word}" matched! wordsSeen["${word}"]=${wordsSeen[word]} / ${wordFreq[word]}`,
+        log:`j=${j}: "${word}" → wordsSeen["${word}"]=${wordsSeen[word]}, matched so far: ${j+1}/${wordCount}`,
+        breakReason:null, newFound:false, activeJ:-1, done:false,
+      });
+
+      // All words matched
+      if (j + 1 === wordCount) {
+        results.push(i);
+        frames.push({
+          i, j, wordsSeen:{...wordsSeen}, slotStates:[...slotStates],
+          results:[...results],
+          phase:'ph-found',
+          phaseText:`ALL ${wordCount} words matched! Push index ${i}`,
+          log:`✓ All words found starting at i=${i} — substring: "${str.slice(i, i+windowSize)}"`,
+          breakReason:null, newFound:true, newFoundIdx:i, activeJ:-1, done:false,
+        });
+      }
+    }
+  }
+
+  frames.push({
+    i:-1, j:-1, wordsSeen:{}, slotStates:[], results:[...results],
+    phase: results.length > 0 ? 'ph-done' : 'ph-init',
+    phaseText: results.length > 0
+      ? `Done! Found ${results.length} concatenation(s) at [${results.join(', ')}]`
+      : 'Done! No valid concatenation found.',
+    log:`Complete. Result: [${results.join(', ')}]`,
+    breakReason:null, newFound:false, done:true,
+  });
+
+  return frames;
+}
+
+// ─── Apply frame ──────────────────────────────────────────────────────────────
+function applyFrame(f) {
+  const wordLength = words[0].length;
+  const wordCount  = words.length;
+  const windowSize = wordCount * wordLength;
+
+  // Reset string cells
+  for (let i = 0; i < str.length; i++) {
+    const cell = document.getElementById(`sc-${i}`);
+    if (cell) { cell.className = 'ch-cell s-cell' + (((i+1)%wordLength===0)?' word-boundary':''); cell.style.cssText=''; }
+    const pc = document.getElementById(`pc-${i}`);
+    if (pc) { pc.className = 'p-cell' + (((i+1)%wordLength===0)?' word-boundary':''); pc.textContent=''; }
+  }
+
+  // Draw window if i is valid
+  if (f.i >= 0 && !f.done) {
+    // Base window highlight
+    for (let k = f.i; k < f.i + windowSize && k < str.length; k++) {
+      const cell = document.getElementById(`sc-${k}`);
+      if (cell) cell.classList.add('in-window');
+    }
+
+    // Color slots by state
+    (f.slotStates || []).forEach((st, jIdx) => {
+      const start = f.i + jIdx * wordLength;
+      let slotClass = '';
+      if (st.state === 'matched')      slotClass = 'slot-matched';
+      else if (st.state === 'invalid') slotClass = 'slot-invalid';
+      else if (st.state === 'dup')     slotClass = 'slot-dup';
+      for (let k = start; k < start + wordLength; k++) {
+        const cell = document.getElementById(`sc-${k}`);
+        if (cell && slotClass) cell.classList.add(slotClass);
+      }
+    });
+
+    // Active (currently extracting) slot highlight
+    if (f.activeJ >= 0 && f.extractedStart !== undefined) {
+      for (let k = f.extractedStart; k < f.extractedStart + wordLength; k++) {
+        const cell = document.getElementById(`sc-${k}`);
+        if (cell) {
+          cell.classList.remove('in-window');
+          cell.classList.add('slot-0');
+        }
+      }
+    }
+
+    // Pointer for i
+    const iPtr = document.getElementById(`pc-${f.i}`);
+    if (iPtr) { iPtr.className = 'p-cell si' + (((f.i+1)%wordLength===0)?' word-boundary':''); iPtr.textContent = 'i'; }
+    if (f.activeJ >= 0 && f.extractedStart !== undefined && f.extractedStart !== f.i) {
+      const nwiPtr = document.getElementById(`pc-${f.extractedStart}`);
+      if (nwiPtr) { nwiPtr.className = 'p-cell nwi' + (((f.extractedStart+1)%wordLength===0)?' word-boundary':''); nwiPtr.textContent = 'nwi'; }
+    }
+  }
+
+  // Outer loop pips
+  if (f.i >= 0) {
+    // Mark previous iterations
+    for (let k = 0; k < f.i; k++) {
+      const pip = document.getElementById(`pip-${k}`);
+      if (pip) {
+        // Check if k is in results
+        const wasFound = (f.results || []).some(r => r === k);
+        pip.className = 'outer-pip ' + (wasFound ? 'done-found' : 'done-miss');
+      }
+    }
+    const curPip = document.getElementById(`pip-${f.i}`);
+    if (curPip) curPip.className = 'outer-pip current';
+  }
+
+  document.getElementById('outer-i').textContent = f.i >= 0 ? f.i : '—';
+
+  // Word slots
+  renderSlots(f.slotStates || [], f.activeJ, wordCount);
+
+  // wordsSeen map
+  renderWordsSeen(f.wordsSeen || {});
+
+  // Break reason
+  const bb = document.getElementById('break-box');
+  if (f.breakReason === 'not-in-freq') {
+    bb.innerHTML = `<span style="color:var(--red);font-weight:700;">✗ "${f.breakWord}" not in wordFreq</span>
+      <br><span style="font-size:.75rem;color:var(--muted);">This word is not in the provided words list at all — no point continuing from i=${f.i}.</span>`;
+  } else if (f.breakReason === 'duplicate') {
+    const wf = {}; words.forEach(w => { wf[w] = (wf[w]||0)+1; });
+    bb.innerHTML = `<span style="color:var(--amber);font-weight:700;">✗ "${f.breakWord}" seen too many times</span>
+      <br><span style="font-size:.75rem;color:var(--muted);">wordsSeen["${f.breakWord}"]=${(f.wordsSeen||{})[f.breakWord]||0} > wordFreq["${f.breakWord}"]=${wf[f.breakWord]||0} — duplicate beyond what's required.</span>`;
+  } else if (f.phase === 'ph-outer' || f.phase === 'ph-init') {
+    bb.innerHTML = '<span style="color:var(--muted);">No break in current attempt yet.</span>';
+  } else if (f.phase === 'ph-found' || f.phase === 'ph-done') {
+    bb.innerHTML = '<span style="color:var(--green);">✓ All words matched — no break needed!</span>';
+  }
+
+  // Results
+  updateResults(f.results || [], f.newFound, f.newFoundIdx);
+
+  // Phase
+  setPhase(f.phase, f.phaseText);
+  document.getElementById('log-box').textContent = f.log;
+  document.getElementById('step-counter').textContent = `Step ${currentStep + 1} / ${steps.length}`;
+  document.getElementById('btn-step-b').disabled = currentStep <= 0;
+  document.getElementById('btn-step-f').disabled = currentStep >= steps.length - 1;
+}
+
+function updateResults(results, isNew, newIdx) {
+  const rc = document.getElementById('res-count');
+  const chips = document.getElementById('res-chips');
+  rc.textContent = results.length;
+  if (results.length === 0) {
+    chips.innerHTML = '<span class="no-res" id="no-res-text">No results yet…</span>';
+    return;
+  }
+  chips.innerHTML = '';
+  const wordCount  = words.length;
+  const wordLength = words[0].length;
+  const windowSize = wordCount * wordLength;
+  results.forEach((idx, i) => {
+    const chip = document.createElement('div');
+    const isLatest = isNew && idx === newIdx && i === results.length - 1;
+    chip.className = 'res-chip' + (isLatest ? ' new-chip' : '');
+    chip.innerHTML = `<span class="chip-idx">idx ${idx}</span><span class="chip-str">${str.slice(idx, idx + windowSize)}</span>`;
+    chips.appendChild(chip);
+  });
+}
+
+function setPhase(cls, text) {
+  const pb = document.getElementById('phase-banner');
+  pb.className = `phase-banner ${cls}`;
+  document.getElementById('phase-text').textContent = text;
+}
+
+// ─── Playback ──────────────────────────────────────────────────────────────────
+function playPause() {
+  playing = !playing;
+  const btn = document.getElementById('btn-play');
+  btn.textContent = playing ? '⏸ Pause' : '▶ Play';
+  btn.className = 'ctrl-btn' + (playing ? ' playing' : '');
+  if (playing) tick(); else clearTimeout(timer);
+}
+
+function tick() {
+  if (!playing) return;
+  if (currentStep >= steps.length - 1) {
+    playing = false;
+    document.getElementById('btn-play').textContent = '▶ Play';
+    document.getElementById('btn-play').className = 'ctrl-btn';
+    return;
+  }
+  advance();
+  const speed = 1600 - parseInt(document.getElementById('speed-range').value);
+  timer = setTimeout(tick, speed);
+}
+
+function advance() {
+  if (currentStep < steps.length - 1) { currentStep++; applyFrame(steps[currentStep]); }
+}
+
+function stepFwd() {
+  if (playing) { playing = false; clearTimeout(timer); document.getElementById('btn-play').textContent = '▶ Play'; document.getElementById('btn-play').className = 'ctrl-btn'; }
+  advance();
+}
+
+function stepBack() {
+  if (playing) { playing = false; clearTimeout(timer); document.getElementById('btn-play').textContent = '▶ Play'; document.getElementById('btn-play').className = 'ctrl-btn'; }
+  if (currentStep > 0) { currentStep--; applyFrame(steps[currentStep]); }
+}
+
+function resetAnim() {
+  playing = false; clearTimeout(timer);
+  document.getElementById('btn-play').textContent = '▶ Play';
+  document.getElementById('btn-play').className = 'ctrl-btn';
+  currentStep = -1;
+  // Reset pips
+  const outerLimit = str.length - words.length * words[0].length + 1;
+  for (let i = 0; i < Math.max(0, outerLimit); i++) {
+    const pip = document.getElementById(`pip-${i}`);
+    if (pip) pip.className = 'outer-pip';
+  }
+  buildDOM();
+  document.getElementById('step-counter').textContent = `Step 0 / ${steps.length}`;
+  document.getElementById('btn-step-b').disabled = true;
+  document.getElementById('btn-step-f').disabled = steps.length === 0;
+}
+
+// ─── Config ────────────────────────────────────────────────────────────────────
+function applyConfig() {
+  const s = document.getElementById('inp-str').value.trim();
+  const ws = document.getElementById('inp-words').value.trim().split(',').map(w => w.trim()).filter(Boolean);
+  if (!s || ws.length === 0 || ws[0].length === 0) { alert('String and at least one word required.'); return; }
+  const wl = ws[0].length;
+  if (ws.some(w => w.length !== wl)) { alert('All words must be the same length.'); return; }
+  str = s; words = ws;
+  rebuildAll();
+}
+
+function loadEx(s, ws) {
+  document.getElementById('inp-str').value = s;
+  document.getElementById('inp-words').value = ws;
+  str = s; words = ws.split(',').map(w => w.trim());
+  rebuildAll();
+}
+
+function rebuildAll() {
+  steps = buildSteps();
+  buildDOM();
+  document.getElementById('step-counter').textContent = `Step 0 / ${steps.length}`;
+  document.getElementById('btn-step-b').disabled = true;
+  document.getElementById('btn-step-f').disabled = steps.length === 0;
+}
+
+// ─── Init ──────────────────────────────────────────────────────────────────────
+rebuildAll();
+</script>
+</body>
+</html>
