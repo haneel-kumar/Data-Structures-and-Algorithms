@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smallest Window containing Substring – Sliding Window</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a;
+    --border: #2e3250; --text: #e2e8f0; --muted: #64748b;
+    --purple: #8b5cf6; --purple-dim: #3b2e6e; --purple-glow: rgba(139,92,246,.25);
+    --blue: #3b82f6; --blue-dim: #1e3a5f; --blue-glow: rgba(59,130,246,.25);
+    --green: #22c55e; --green-dim: #14532d; --green-glow: rgba(34,197,94,.25);
+    --amber: #f59e0b; --amber-dim: #78350f; --amber-glow: rgba(245,158,11,.25);
+    --red: #ef4444; --red-dim: #7f1d1d;
+    --cyan: #06b6d4; --cyan-dim: #164e63;
+    --gold: #eab308; --gold-dim: #713f12;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+  /* ── Header ─────────────────────────────────────────── */
+  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  .header h1 { font-size: 1.15rem; font-weight: 700; }
+  .header h1 span { color: var(--amber); }
+  .badge-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge { padding: 3px 10px; border-radius: 99px; font-size: .72rem; font-weight: 600; letter-spacing: .04em; }
+  .badge-hard { background: #3b0764; color: #d8b4fe; }
+  .badge-lc   { background: var(--surface2); color: var(--muted); }
+  .badge-pat  { background: var(--blue-dim); color: #93c5fd; }
+
+  /* ── Breadcrumb ──────────────────────────────────────── */
+  .breadcrumb { padding: 10px 24px; display: flex; align-items: center; gap: 6px; font-size: .78rem; color: var(--muted); flex-wrap: wrap; }
+  .breadcrumb .crumb { padding: 3px 10px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border); }
+  .breadcrumb .crumb.active { background: var(--amber-dim); border-color: var(--amber); color: #fcd34d; }
+  .breadcrumb .arrow { color: var(--border); }
+
+  /* ── Layout ──────────────────────────────────────────── */
+  .main { max-width: 1120px; margin: 0 auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* ── Diff strip ──────────────────────────────────────── */
+  .diff-strip { background: var(--surface2); border: 1px solid var(--border); border-left: 3px solid var(--amber); border-radius: 10px; padding: 12px 18px; font-size: .82rem; color: #fcd34d; line-height: 1.7; }
+  .diff-strip strong { color: var(--amber); }
+  .diff-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+  @media(max-width:600px){ .diff-row { grid-template-columns:1fr; } }
+  .diff-cell { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: .78rem; }
+  .diff-cell .diff-title { font-weight: 700; margin-bottom: 4px; }
+  .diff-perm .diff-title { color: var(--purple); }
+  .diff-min .diff-title { color: var(--amber); }
+
+  /* ── Config ──────────────────────────────────────────── */
+  .config-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; }
+  .config-card h3 { font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }
+  .config-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+  .config-field { display: flex; flex-direction: column; gap: 5px; }
+  .config-field label { font-size: .78rem; color: var(--muted); }
+  .config-field input { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 7px 11px; font-size: .9rem; width: 200px; font-family: monospace; }
+  .config-field input:focus { outline: none; border-color: var(--amber); }
+  .btn { padding: 8px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: .85rem; font-weight: 600; transition: opacity .15s; }
+  .btn:hover { opacity: .85; }
+  .btn-apply { background: var(--amber); color: #000; }
+  .btn-ex { background: var(--surface2); color: var(--text); border: 1px solid var(--border); padding: 6px 12px; font-size: .78rem; }
+  .examples { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+
+  /* ── Two-col ─────────────────────────────────────────── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media(max-width:720px){ .two-col { grid-template-columns: 1fr; } }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  @media(max-width:800px){ .three-col { grid-template-columns: 1fr; } }
+
+  /* ── Cards ───────────────────────────────────────────── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; }
+  .card h3 { font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }
+
+  /* ── Pattern cells ───────────────────────────────────── */
+  .pattern-chars { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .p-cell { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1rem; font-weight: 700; font-family: monospace; border: 2px solid transparent; }
+
+  /* ── Freq map ────────────────────────────────────────── */
+  .freq-map { display: flex; gap: 8px; flex-wrap: wrap; }
+  .freq-entry { display: flex; flex-direction: column; align-items: center; gap: 0; }
+  .freq-char { width: 38px; height: 28px; border-radius: 6px 6px 0 0; display: flex; align-items: center; justify-content: center; font-size: .85rem; font-weight: 700; font-family: monospace; }
+  .freq-count { width: 38px; height: 26px; border-radius: 0 0 6px 6px; display: flex; align-items: center; justify-content: center; font-size: .85rem; font-weight: 700; background: var(--surface2); border: 1px solid var(--border); border-top: none; transition: background .25s, color .25s; }
+  .freq-count.zero { background: #14532d; color: #86efac; }
+  .freq-count.negative { background: var(--red-dim); color: #fca5a5; }
+  /* negative means redundant in this problem */
+  .redundant-label { font-size: .6rem; color: #fca5a5; margin-top: 2px; }
+
+  /* ── Matched counter ─────────────────────────────────── */
+  .matched-panel { display: flex; flex-direction: column; gap: 10px; }
+  .matched-row { display: flex; align-items: center; gap: 10px; }
+  .matched-label { font-size: .8rem; color: var(--muted); min-width: 90px; }
+  .matched-big { font-size: 1.5rem; font-weight: 800; }
+  .matched-big.full { color: var(--green); }
+  .matched-big.partial { color: var(--amber); }
+  .matched-bar-wrap { height: 10px; background: var(--surface2); border-radius: 99px; overflow: hidden; flex: 1; }
+  .matched-bar { height: 100%; border-radius: 99px; background: var(--blue); transition: width .3s, background .3s; }
+  .matched-bar.full { background: var(--green); }
+  .note-box { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: .75rem; color: var(--muted); line-height: 1.6; }
+  .note-box strong { color: var(--amber); }
+
+  /* ── Phase banner ────────────────────────────────────── */
+  .phase-banner { padding: 9px 14px; border-radius: 8px; font-size: .83rem; font-weight: 700; letter-spacing: .04em; display: flex; align-items: center; gap: 8px; }
+  .phase-banner .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .ph-init      { background: var(--surface2); color: var(--muted); }
+  .ph-init      .dot { background: var(--muted); }
+  .ph-add       { background: var(--blue-dim); color: #93c5fd; }
+  .ph-add       .dot { background: var(--blue); }
+  .ph-counted   { background: #14532d; color: #86efac; }
+  .ph-counted   .dot { background: var(--green); }
+  .ph-shrink    { background: var(--amber-dim); color: #fcd34d; }
+  .ph-shrink    .dot { background: var(--amber); animation: blink 1s infinite; }
+  .ph-redundant { background: #292524; color: #d6d3d1; }
+  .ph-redundant .dot { background: #78716c; }
+  .ph-newbest   { background: var(--gold-dim); color: #fef08a; }
+  .ph-newbest   .dot { background: var(--gold); animation: blink 1s infinite; }
+  .ph-stop      { background: var(--red-dim); color: #fca5a5; }
+  .ph-stop      .dot { background: var(--red); }
+  .ph-done      { background: #14532d; color: #86efac; }
+  .ph-done      .dot { background: var(--green); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* ── String cells ────────────────────────────────────── */
+  .str-wrap { overflow-x: auto; padding-bottom: 4px; }
+  .str-cells { display: flex; gap: 5px; min-width: max-content; }
+  .s-cell { width: 40px; height: 52px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 1rem; font-weight: 700; font-family: monospace; background: var(--surface2); border: 2px solid var(--border); transition: all .2s; position: relative; }
+  .s-cell .idx-label { font-size: .6rem; color: var(--muted); font-weight: 400; position: absolute; top: 3px; }
+  .s-cell .ch { margin-top: 8px; }
+  .s-cell .role { position: absolute; bottom: 3px; font-size: .55rem; font-weight: 700; letter-spacing: .03em; }
+  .s-cell.in-window  { border-color: var(--purple); background: var(--purple-dim); }
+  .s-cell.in-best    { border-color: var(--gold); background: var(--gold-dim); }
+  .s-cell.start-ptr  { border-color: var(--amber) !important; background: var(--amber-dim) !important; }
+  .s-cell.in-pattern { }
+  .s-cell.redundant  { }
+  .ptr-row { display: flex; gap: 5px; min-width: max-content; margin-top: 2px; }
+  .ptr-cell { width: 40px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: .6rem; font-weight: 700; color: transparent; }
+  .ptr-cell.show-s { color: var(--amber); }
+  .ptr-cell.show-e { color: var(--purple); }
+  .ptr-cell.show-best { color: var(--gold); }
+
+  /* ── Best window tracker ─────────────────────────────── */
+  .best-panel { display: flex; flex-direction: column; gap: 8px; }
+  .best-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .best-label { font-size: .78rem; color: var(--muted); min-width: 80px; }
+  .best-val { font-size: 1.2rem; font-weight: 800; color: var(--gold); font-family: monospace; }
+  .best-str { font-size: 1rem; font-weight: 700; font-family: monospace; color: #fef08a; background: var(--gold-dim); border: 1px solid var(--gold); border-radius: 6px; padding: 4px 10px; min-width: 50px; min-height: 30px; display: flex; align-items: center; justify-content: center; letter-spacing: .08em; }
+  .best-str.none { color: var(--muted); background: var(--surface2); border-color: var(--border); font-size: .8rem; font-style: italic; }
+  .best-indicator { padding: 3px 10px; border-radius: 99px; font-size: .72rem; font-weight: 700; background: var(--gold-dim); color: #fef08a; display: none; }
+  .best-indicator.show { display: inline-flex; animation: popIn .35s ease-out; }
+  @keyframes popIn { from{opacity:0;transform:scale(.7)} to{opacity:1;transform:scale(1)} }
+
+  /* ── Redundancy explainer ────────────────────────────── */
+  .redundancy-box { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: .78rem; line-height: 1.7; display: none; }
+  .redundancy-box.show { display: block; }
+  .redundancy-box .r-title { font-weight: 700; margin-bottom: 4px; }
+  .redundancy-box .r-yes { color: var(--red); }
+  .redundancy-box .r-no  { color: #78716c; }
+
+  /* ── Log ─────────────────────────────────────────────── */
+  .log-box { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 9px 13px; font-size: .78rem; color: var(--muted); min-height: 38px; font-family: monospace; line-height: 1.6; }
+
+  /* ── Controls ────────────────────────────────────────── */
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .ctrl-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 9px 16px; cursor: pointer; font-size: .85rem; font-weight: 600; transition: background .15s; }
+  .ctrl-btn:hover { background: var(--border); }
+  .ctrl-btn:disabled { opacity: .35; cursor: default; }
+  .ctrl-btn.playing { background: var(--amber-dim); border-color: var(--amber); color: #fcd34d; }
+  .speed-wrap { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .speed-wrap label { font-size: .78rem; color: var(--muted); }
+  .speed-wrap input { width: 100px; accent-color: var(--amber); }
+  .step-counter { font-size: .8rem; color: var(--muted); }
+
+  /* ── Legend ──────────────────────────────────────────── */
+  .legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+  .leg-item { display: flex; align-items: center; gap: 5px; font-size: .72rem; color: var(--muted); }
+  .leg-box { width: 13px; height: 13px; border-radius: 3px; border: 2px solid; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Smallest Window <span>containing Substring</span></h1>
+  <div class="badge-row">
+    <span class="badge badge-hard">Hard</span>
+    <span class="badge badge-lc">LC #76</span>
+    <span class="badge badge-pat">Sliding Window</span>
+  </div>
+</div>
+
+<div class="breadcrumb">
+  <span class="crumb">Permutation in String</span><span class="arrow">›</span>
+  <span class="crumb">String Anagrams</span><span class="arrow">›</span>
+  <span class="crumb active">Smallest Window Substring</span>
+</div>
+
+<div class="main">
+
+  <!-- Diff strip -->
+  <div class="diff-strip">
+    <strong>Key differences from Permutation / Anagrams:</strong>
+    <div class="diff-row">
+      <div class="diff-cell diff-perm">
+        <div class="diff-title">Permutation / Anagrams</div>
+        Fixed window (= pattern.length)<br>
+        matched counts <em>distinct</em> chars at freq = 0<br>
+        Never shrinks past exact window size
+      </div>
+      <div class="diff-cell diff-min">
+        <div class="diff-title">Minimum Window Substring ← this</div>
+        <strong>Variable window</strong> — expand until all matched, then shrink<br>
+        matched counts <strong>total instances</strong> (≡ pattern.length)<br>
+        Redundant chars (freq &lt; 0) can be shrunk past without breaking match<br>
+        Tracks <strong>substrStart + minLength</strong> as new best whenever all matched
+      </div>
+    </div>
+  </div>
+
+  <!-- Config -->
+  <div class="config-card">
+    <h3>Configuration</h3>
+    <div class="config-row">
+      <div class="config-field">
+        <label>String</label>
+        <input id="inp-str" type="text" value="aabdec" />
+      </div>
+      <div class="config-field">
+        <label>Pattern</label>
+        <input id="inp-pat" type="text" value="abc" />
+      </div>
+      <button class="btn btn-apply" onclick="applyConfig()">Apply</button>
+    </div>
+    <div class="examples">
+      <button class="btn btn-ex" onclick="loadEx('aabdec','abc')">aabdec / abc → "abdec"</button>
+      <button class="btn btn-ex" onclick="loadEx('abdbca','abc')">abdbca / abc → "bca"</button>
+      <button class="btn btn-ex" onclick="loadEx('adcad','abc')">adcad / abc → "" (none)</button>
+      <button class="btn btn-ex" onclick="loadEx('ADOBECODEBANC','ABC')">ADOBECODEBANC / ABC → "BANC"</button>
+    </div>
+  </div>
+
+  <!-- Pattern + freq map + matched -->
+  <div class="two-col">
+    <div class="card">
+      <h3>Pattern</h3>
+      <div class="pattern-chars" id="pattern-chars"></div>
+      <h3 style="margin-top:10px;">charFreq (initialized from pattern)</h3>
+      <div class="freq-map" id="freq-map"></div>
+      <div style="margin-top:8px;font-size:.73rem;color:var(--muted);">
+        <span style="color:#86efac;">■</span> freq = 0: char fully accounted for &nbsp;
+        <span style="color:#fca5a5;">■</span> freq &lt; 0: <em>redundant</em> extra copy in window
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Matched Counter</h3>
+      <div class="matched-panel">
+        <div class="matched-row">
+          <span class="matched-label">matched</span>
+          <span class="matched-big partial" id="matched-val">0</span>
+          <span style="color:var(--muted);font-size:.9rem;"> / </span>
+          <span style="font-size:1.5rem;font-weight:800;color:var(--purple);" id="pattern-len-val">0</span>
+          <div class="matched-bar-wrap"><div class="matched-bar" id="matched-bar" style="width:0%"></div></div>
+        </div>
+        <div class="note-box">
+          <strong>Unlike Permutation:</strong> <code>matched</code> targets <strong>pattern.length</strong> (total instances),
+          not distinct count. <code>matched++</code> only when <code>charFreq[ch]-- ≥ 0</code>,
+          so extra copies (freq already 0) <em>don't</em> increment matched.
+        </div>
+        <div class="phase-banner ph-init" id="phase-banner">
+          <div class="dot"></div>
+          <span id="phase-text">Ready</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- String visualization -->
+  <div class="card">
+    <h3>String — variable sliding window</h3>
+    <div class="str-wrap">
+      <div class="str-cells" id="str-cells"></div>
+      <div class="ptr-row" id="ptr-row"></div>
+    </div>
+    <div class="legend">
+      <div class="leg-item"><div class="leg-box" style="background:var(--purple-dim);border-color:var(--purple);"></div> current window</div>
+      <div class="leg-item"><div class="leg-box" style="background:var(--gold-dim);border-color:var(--gold);"></div> best window so far</div>
+      <div class="leg-item"><div class="leg-box" style="background:var(--amber-dim);border-color:var(--amber);"></div> windowStart (about to leave)</div>
+    </div>
+  </div>
+
+  <!-- Best window + Redundancy explainer -->
+  <div class="two-col">
+    <div class="card">
+      <h3>Best Window Tracker</h3>
+      <div class="best-panel">
+        <div class="best-row">
+          <span class="best-label">minLength</span>
+          <span class="best-val" id="best-len">∞</span>
+        </div>
+        <div class="best-row">
+          <span class="best-label">substrStart</span>
+          <span class="best-val" id="best-start">—</span>
+        </div>
+        <div class="best-row">
+          <span class="best-label">substring</span>
+          <span class="best-str none" id="best-str">none yet</span>
+          <span class="best-indicator" id="best-indicator">★ New Best!</span>
+        </div>
+        <div style="font-size:.73rem;color:var(--muted);margin-top:4px;">
+          Updated whenever <code>matched === pattern.length</code> and current window is shorter.
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Redundancy Check (on shrink)</h3>
+      <div class="redundancy-box show" id="redundancy-box">
+        <div class="r-title" style="color:var(--muted);">Waiting for shrink step…</div>
+        <div style="color:var(--muted);font-size:.78rem;">When a char leaves the window during shrinking, we check whether it was a <em>needed</em> match or a <em>redundant</em> extra copy.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="card">
+    <h3>Step Log</h3>
+    <div class="log-box" id="log-box">Press Play or Step Forward to begin.</div>
+  </div>
+
+  <!-- Controls -->
+  <div class="card" style="padding:12px 18px;">
+    <div class="controls">
+      <button class="ctrl-btn" id="btn-reset" onclick="resetAnim()">↺ Reset</button>
+      <button class="ctrl-btn" id="btn-step-b" onclick="stepBack()" disabled>‹ Back</button>
+      <button class="ctrl-btn" id="btn-play"  onclick="playPause()">▶ Play</button>
+      <button class="ctrl-btn" id="btn-step-f" onclick="stepFwd()">Step ›</button>
+      <span class="step-counter" id="step-counter">Step 0 / 0</span>
+      <div class="speed-wrap">
+        <label>Speed</label>
+        <input type="range" id="speed-range" min="100" max="1500" value="750" step="100">
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let str = 'aabdec', pattern = 'abc';
+let steps = [], currentStep = -1, playing = false, timer = null;
+
+// ─── Colors ──────────────────────────────────────────────────────────────────
+const PALETTE = [
+  { bg:'#1e3a5f', border:'#3b82f6', text:'#93c5fd' },
+  { bg:'#14532d', border:'#22c55e', text:'#86efac' },
+  { bg:'#78350f', border:'#f59e0b', text:'#fcd34d' },
+  { bg:'#3b0764', border:'#8b5cf6', text:'#c4b5fd' },
+  { bg:'#164e63', border:'#06b6d4', text:'#67e8f9' },
+  { bg:'#7f1d1d', border:'#ef4444', text:'#fca5a5' },
+];
+let charColorMap = {};
+
+function assignColors() {
+  charColorMap = {};
+  [...new Set(pattern)].forEach((c, i) => { charColorMap[c] = PALETTE[i % PALETTE.length]; });
+}
+function colOf(ch) { return charColorMap[ch] || null; }
+
+// ─── Build DOM ────────────────────────────────────────────────────────────────
+function buildDOM() {
+  assignColors();
+
+  // Pattern chars
+  const pc = document.getElementById('pattern-chars');
+  pc.innerHTML = '';
+  for (const ch of pattern) {
+    const col = colOf(ch) || { bg:'var(--surface2)', border:'var(--border)', text:'var(--text)' };
+    const d = document.createElement('div');
+    d.className = 'p-cell';
+    d.textContent = ch;
+    d.style.cssText = `background:${col.bg};border-color:${col.border};color:${col.text}`;
+    pc.appendChild(d);
+  }
+
+  // String cells
+  const sc = document.getElementById('str-cells');
+  const pr = document.getElementById('ptr-row');
+  sc.innerHTML = ''; pr.innerHTML = '';
+  for (let i = 0; i < str.length; i++) {
+    const cell = document.createElement('div');
+    cell.className = 's-cell';
+    cell.id = `sc-${i}`;
+    cell.innerHTML = `<span class="idx-label">${i}</span><span class="ch">${str[i]}</span><span class="role" id="role-${i}"></span>`;
+    sc.appendChild(cell);
+    const p = document.createElement('div');
+    p.className = 'ptr-cell'; p.id = `ptr-${i}`;
+    pr.appendChild(p);
+  }
+
+  renderFreqMap({});
+  resetPanels();
+}
+
+function renderFreqMap(freq) {
+  const fm = document.getElementById('freq-map');
+  fm.innerHTML = '';
+  [...new Set(pattern)].forEach(ch => {
+    const col = colOf(ch) || PALETTE[0];
+    const cnt = freq[ch] !== undefined ? freq[ch] : 0;
+    const isZero = cnt === 0;
+    const isNeg  = cnt < 0;
+    const wrap = document.createElement('div');
+    wrap.className = 'freq-entry';
+    wrap.innerHTML = `
+      <div class="freq-char" style="background:${col.bg};border:1px solid ${col.border};color:${col.text}">${ch}</div>
+      <div class="freq-count${isZero?' zero':isNeg?' negative':''}">${cnt}</div>
+      ${isNeg ? '<div class="redundant-label">redundant</div>' : ''}
+    `;
+    fm.appendChild(wrap);
+  });
+}
+
+function resetPanels() {
+  document.getElementById('matched-val').textContent = '0';
+  document.getElementById('matched-val').className = 'matched-big partial';
+  document.getElementById('pattern-len-val').textContent = pattern.length;
+  document.getElementById('matched-bar').style.width = '0%';
+  document.getElementById('matched-bar').className = 'matched-bar';
+  document.getElementById('best-len').textContent = '∞';
+  document.getElementById('best-start').textContent = '—';
+  const bs = document.getElementById('best-str');
+  bs.textContent = 'none yet'; bs.className = 'best-str none';
+  document.getElementById('best-indicator').className = 'best-indicator';
+  document.getElementById('redundancy-box').innerHTML = `
+    <div class="r-title" style="color:var(--muted);">Waiting for shrink step…</div>
+    <div style="color:var(--muted);font-size:.78rem;">When a char leaves the window during shrinking, we check whether it was a <em>needed</em> match or a <em>redundant</em> extra copy.</div>
+  `;
+  setPhase('ph-init', 'Ready — press Play or Step');
+  document.getElementById('log-box').textContent = 'Press Play or Step Forward to begin.';
+}
+
+// ─── Build steps ──────────────────────────────────────────────────────────────
+function buildSteps() {
+  const frames = [];
+  let charFreq = {};
+  for (const ch of pattern) { charFreq[ch] = (charFreq[ch] || 0) + 1; }
+
+  const initFreq = { ...charFreq };
+
+  frames.push({
+    ws: 0, we: -1, freq: { ...charFreq },
+    matched: 0, substrStart: 0, minLength: str.length + 1,
+    phase: 'ph-init', phaseText: 'Initialized charFreq from pattern',
+    log: `charFreq = ${JSON.stringify(charFreq)}  |  target matched = ${pattern.length}`,
+    newBest: false, isRedundant: null, leavingChar: null, done: false,
+  });
+
+  let windowStart = 0, matched = 0, substrStart = 0, minLength = str.length + 1;
+
+  for (let windowEnd = 0; windowEnd < str.length; windowEnd++) {
+    const endChar = str[windowEnd];
+    const isInPat = endChar in charFreq;
+    let counted = false;
+    let wasRedundant = false;
+
+    if (isInPat) {
+      charFreq[endChar]--;
+      if (charFreq[endChar] >= 0) {
+        matched++;
+        counted = true;
+      } else {
+        wasRedundant = true; // freq went negative: char was already covered
+      }
+    }
+
+    frames.push({
+      ws: windowStart, we: windowEnd, freq: { ...charFreq },
+      matched, substrStart, minLength,
+      phase: counted ? 'ph-counted' : (wasRedundant ? 'ph-redundant' : 'ph-add'),
+      phaseText: counted
+        ? `EXPAND: '${endChar}' matched → freq=${charFreq[endChar]}, matched=${matched}`
+        : wasRedundant
+          ? `EXPAND: '${endChar}' already covered (redundant), freq=${charFreq[endChar]}`
+          : `EXPAND: '${endChar}' not in pattern — skip`,
+      log: isInPat
+        ? (counted
+            ? `Add '${endChar}': charFreq['${endChar}']-- = ${charFreq[endChar]} ≥ 0 → matched++ (${matched}/${pattern.length})`
+            : `Add '${endChar}': charFreq['${endChar}']-- = ${charFreq[endChar]} < 0 → redundant, matched stays ${matched}`)
+        : `Add '${endChar}': not in pattern`,
+      newBest: false, isRedundant: null, leavingChar: null, done: false,
+    });
+
+    // Shrink while matched
+    while (matched === pattern.length) {
+      // Check if this is a new best
+      const windowSize = windowEnd - windowStart + 1;
+      let newBest = false;
+      if (minLength > windowSize) {
+        minLength = windowSize;
+        substrStart = windowStart;
+        newBest = true;
+      }
+
+      frames.push({
+        ws: windowStart, we: windowEnd, freq: { ...charFreq },
+        matched, substrStart, minLength,
+        phase: newBest ? 'ph-newbest' : 'ph-shrink',
+        phaseText: newBest
+          ? `★ NEW BEST! window="${str.slice(substrStart, substrStart + minLength)}" (len ${minLength})`
+          : `SHRINK: matched=${matched}=pattern.length — try removing windowStart`,
+        log: newBest
+          ? `New best: substrStart=${substrStart}, minLength=${minLength}, substring="${str.slice(substrStart, substrStart + minLength)}"`
+          : `matched (${matched}) === pattern.length (${pattern.length}) — window may still improve, try shrinking`,
+        newBest, isRedundant: null, leavingChar: null, done: false,
+      });
+
+      // Remove startChar
+      const startChar = str[windowStart];
+      const startIsIn = startChar in charFreq;
+      let stopsMatch = false;
+      let isRedundant = false;
+
+      if (startIsIn) {
+        if (charFreq[startChar] === 0) {
+          matched--;
+          stopsMatch = true;
+        } else {
+          isRedundant = true; // freq was negative, restoring to negative—still covered
+        }
+        charFreq[startChar]++;
+      }
+
+      const leavingIdx = windowStart;
+      windowStart++;
+
+      frames.push({
+        ws: windowStart, we: windowEnd, freq: { ...charFreq },
+        matched, substrStart, minLength,
+        phase: stopsMatch ? 'ph-stop' : (isRedundant ? 'ph-redundant' : 'ph-shrink'),
+        phaseText: stopsMatch
+          ? `STOP SHRINK: '${startChar}' was needed (freq was 0) → matched-- = ${matched}`
+          : isRedundant
+            ? `KEEP SHRINKING: '${startChar}' was redundant (freq was <0) → still matched`
+            : startIsIn
+              ? `KEEP SHRINKING: '${startChar}' restored, still matched`
+              : `KEEP SHRINKING: '${startChar}' not in pattern`,
+        log: startIsIn
+          ? (stopsMatch
+              ? `Remove '${startChar}': freq was 0 → matched-- (${matched}/${pattern.length}) → shrink stops`
+              : `Remove '${startChar}': freq was ${charFreq[startChar]-1} (redundant) → matched stays ${matched}, keep shrinking`)
+          : `Remove '${startChar}': not in pattern → keep shrinking`,
+        newBest: false,
+        isRedundant: startIsIn ? isRedundant : null,
+        leavingChar: startChar,
+        leavingIdx,
+        stopsMatch,
+        done: false,
+      });
+    }
+  }
+
+  const result = minLength <= str.length ? str.substring(substrStart, substrStart + minLength) : '';
+  frames.push({
+    ws: windowStart, we: str.length, freq: { ...charFreq },
+    matched, substrStart, minLength,
+    phase: result ? 'ph-done' : 'ph-stop',
+    phaseText: result
+      ? `Done! Smallest window: "${result}" (length ${minLength})`
+      : 'Done! No valid window found.',
+    log: result
+      ? `Result: "${result}"  (substrStart=${substrStart}, minLength=${minLength})`
+      : 'Result: "" — no window covers all pattern characters',
+    newBest: false, isRedundant: null, leavingChar: null, done: true, result,
+  });
+
+  return frames;
+}
+
+// ─── Apply frame ──────────────────────────────────────────────────────────────
+function applyFrame(f) {
+  // Reset all cells
+  for (let i = 0; i < str.length; i++) {
+    const cell = document.getElementById(`sc-${i}`);
+    if (cell) { cell.className = 's-cell'; cell.style.cssText = ''; }
+    const ptr = document.getElementById(`ptr-${i}`);
+    if (ptr) { ptr.className = 'ptr-cell'; ptr.textContent = ''; }
+    const role = document.getElementById(`role-${i}`);
+    if (role) role.textContent = '';
+  }
+
+  // Best window (gold) — show when we have a valid best
+  if (f.minLength <= str.length) {
+    for (let i = f.substrStart; i < f.substrStart + f.minLength; i++) {
+      const cell = document.getElementById(`sc-${i}`);
+      if (cell && !(i >= f.ws && i <= f.we && f.we < str.length)) {
+        cell.classList.add('in-best');
+        const ptr = document.getElementById(`ptr-${i}`);
+        if (ptr) { ptr.className = 'ptr-cell show-best'; ptr.textContent = 'best'; }
+      }
+    }
+  }
+
+  // Current window
+  if (f.we >= 0 && f.we < str.length) {
+    for (let i = f.ws; i <= f.we; i++) {
+      const cell = document.getElementById(`sc-${i}`);
+      if (!cell) continue;
+      cell.className = 's-cell in-window';
+      const col = colOf(str[i]);
+      if (col) { cell.style.borderColor = col.border; cell.style.background = col.bg; }
+      // Role label
+      const role = document.getElementById(`role-${i}`);
+      if (role && col) role.style.color = col.text;
+    }
+
+    // windowStart pointer (amber override)
+    if (!f.done && f.phase !== 'ph-init') {
+      const sc = document.getElementById(`sc-${f.ws}`);
+      if (sc) sc.classList.add('start-ptr');
+      const sp = document.getElementById(`ptr-${f.ws}`);
+      if (sp) { sp.className = 'ptr-cell show-s'; sp.textContent = 'wS'; }
+      if (f.we !== f.ws) {
+        const ep = document.getElementById(`ptr-${f.we}`);
+        if (ep) { ep.className = 'ptr-cell show-e'; ep.textContent = 'wE'; }
+      }
+    }
+  }
+
+  // Freq map
+  renderFreqMap(f.freq);
+
+  // Matched counter
+  const mv = document.getElementById('matched-val');
+  mv.textContent = f.matched;
+  mv.className = 'matched-big ' + (f.matched === pattern.length ? 'full' : 'partial');
+  document.getElementById('pattern-len-val').textContent = pattern.length;
+  const pct = pattern.length > 0 ? (f.matched / pattern.length) * 100 : 0;
+  const mb = document.getElementById('matched-bar');
+  mb.style.width = Math.min(pct, 100) + '%';
+  mb.className = 'matched-bar' + (f.matched === pattern.length ? ' full' : '');
+
+  // Best window tracker
+  document.getElementById('best-len').textContent = f.minLength <= str.length ? f.minLength : '∞';
+  document.getElementById('best-start').textContent = f.minLength <= str.length ? f.substrStart : '—';
+  const bsEl = document.getElementById('best-str');
+  if (f.minLength <= str.length) {
+    const sub = str.slice(f.substrStart, f.substrStart + f.minLength);
+    bsEl.textContent = sub;
+    bsEl.className = 'best-str';
+  } else {
+    bsEl.textContent = 'none yet';
+    bsEl.className = 'best-str none';
+  }
+  const bi = document.getElementById('best-indicator');
+  bi.className = 'best-indicator' + (f.newBest ? ' show' : '');
+
+  // Redundancy box
+  const rb = document.getElementById('redundancy-box');
+  if (f.leavingChar !== null && f.leavingChar !== undefined) {
+    const isIn = f.leavingChar in { ...Object.fromEntries([...new Set(pattern)].map(c => [c,1])) };
+    if (isIn) {
+      if (f.stopsMatch) {
+        rb.innerHTML = `
+          <div class="r-title r-yes">⚠ '${f.leavingChar}' was a needed match (freq was 0)</div>
+          <div style="font-size:.78rem;line-height:1.7;">
+            <code>charFreq['${f.leavingChar}']</code> was <strong>0</strong> before restore →
+            this char was exactly covering a pattern need.<br>
+            <span class="r-yes"><strong>matched--</strong></span> → shrink loop exits.
+          </div>`;
+      } else {
+        rb.innerHTML = `
+          <div class="r-title" style="color:#86efac;">✓ '${f.leavingChar}' was redundant (freq &lt; 0)</div>
+          <div style="font-size:.78rem;line-height:1.7;">
+            <code>charFreq['${f.leavingChar}']</code> was <strong>negative</strong> before restore →
+            we had more copies than needed. Removing this one still keeps the pattern covered.<br>
+            <span style="color:#86efac;"><strong>matched stays</strong></span> → keep shrinking.
+          </div>`;
+      }
+    } else {
+      rb.innerHTML = `
+        <div class="r-title" style="color:var(--muted);">'${f.leavingChar}' not in pattern</div>
+        <div style="font-size:.78rem;color:var(--muted);">No freq change, matched unchanged → keep shrinking.</div>`;
+    }
+    rb.className = 'redundancy-box show';
+  } else if (f.phase === 'ph-init' || f.phase === 'ph-add' || f.phase === 'ph-counted') {
+    rb.innerHTML = `
+      <div class="r-title" style="color:var(--muted);">Expanding window…</div>
+      <div style="color:var(--muted);font-size:.78rem;">Redundancy check only applies during the shrink phase.</div>`;
+    rb.className = 'redundancy-box show';
+  }
+
+  // Phase banner
+  setPhase(f.phase, f.phaseText);
+
+  // Log
+  document.getElementById('log-box').textContent = f.log;
+
+  // Step counter
+  document.getElementById('step-counter').textContent = `Step ${currentStep + 1} / ${steps.length}`;
+  document.getElementById('btn-step-b').disabled = currentStep <= 0;
+  document.getElementById('btn-step-f').disabled = currentStep >= steps.length - 1;
+}
+
+function setPhase(cls, text) {
+  const pb = document.getElementById('phase-banner');
+  pb.className = `phase-banner ${cls}`;
+  document.getElementById('phase-text').textContent = text;
+}
+
+// ─── Playback ──────────────────────────────────────────────────────────────────
+function playPause() {
+  playing = !playing;
+  const btn = document.getElementById('btn-play');
+  btn.textContent = playing ? '⏸ Pause' : '▶ Play';
+  btn.className = 'ctrl-btn' + (playing ? ' playing' : '');
+  if (playing) tick(); else clearTimeout(timer);
+}
+
+function tick() {
+  if (!playing) return;
+  if (currentStep >= steps.length - 1) {
+    playing = false;
+    document.getElementById('btn-play').textContent = '▶ Play';
+    document.getElementById('btn-play').className = 'ctrl-btn';
+    return;
+  }
+  advance();
+  const speed = 1600 - parseInt(document.getElementById('speed-range').value);
+  timer = setTimeout(tick, speed);
+}
+
+function advance() {
+  if (currentStep < steps.length - 1) { currentStep++; applyFrame(steps[currentStep]); }
+}
+
+function stepFwd() {
+  if (playing) { playing = false; clearTimeout(timer); document.getElementById('btn-play').textContent = '▶ Play'; document.getElementById('btn-play').className = 'ctrl-btn'; }
+  advance();
+}
+
+function stepBack() {
+  if (playing) { playing = false; clearTimeout(timer); document.getElementById('btn-play').textContent = '▶ Play'; document.getElementById('btn-play').className = 'ctrl-btn'; }
+  if (currentStep > 0) { currentStep--; applyFrame(steps[currentStep]); }
+}
+
+function resetAnim() {
+  playing = false; clearTimeout(timer);
+  document.getElementById('btn-play').textContent = '▶ Play';
+  document.getElementById('btn-play').className = 'ctrl-btn';
+  currentStep = -1;
+  buildDOM();
+  document.getElementById('step-counter').textContent = `Step 0 / ${steps.length}`;
+  document.getElementById('btn-step-b').disabled = true;
+  document.getElementById('btn-step-f').disabled = steps.length === 0;
+}
+
+// ─── Config ────────────────────────────────────────────────────────────────────
+function applyConfig() {
+  const s = document.getElementById('inp-str').value.trim();
+  const p = document.getElementById('inp-pat').value.trim();
+  if (!s || !p) { alert('Both fields must be non-empty.'); return; }
+  str = s; pattern = p;
+  rebuildAll();
+}
+
+function loadEx(s, p) {
+  document.getElementById('inp-str').value = s;
+  document.getElementById('inp-pat').value = p;
+  str = s; pattern = p;
+  rebuildAll();
+}
+
+function rebuildAll() {
+  steps = buildSteps();
+  resetAnim();
+}
+
+// ─── Init ──────────────────────────────────────────────────────────────────────
+rebuildAll();
+</script>
+</body>
+</html>
