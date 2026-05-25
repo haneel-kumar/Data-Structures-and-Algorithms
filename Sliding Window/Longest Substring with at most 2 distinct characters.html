@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Longest Substring – At Most 2 Distinct Characters</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --c0: #f472b6;   /* slot-0 color: pink */
+      --c1: #fb923c;   /* slot-1 color: orange */
+      --bg: #0b0c17;
+      --surface: #10121f;
+      --surface2: #161929;
+      --border: #1e2138;
+      --border2: #252844;
+      --muted: #334155;
+      --text: #e2e8f0;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1rem 5rem;
+    }
+
+    /* ── Header ── */
+    .header { text-align:center; margin-bottom:2rem; }
+    .header h1 { font-size:1.5rem; font-weight:800; color:#f8fafc; letter-spacing:-.02em; }
+    .header p  { color:#475569; font-size:.82rem; margin-top:.3rem; }
+    .header a  { color:#818cf8; text-decoration:none; font-size:.76rem; }
+    .header a:hover { text-decoration:underline; }
+
+    /* ── Pattern chain ── */
+    .pattern-chain {
+      display:flex; align-items:center; justify-content:center;
+      flex-wrap:wrap; gap:.4rem;
+      margin-bottom:1.8rem;
+      font-size:.74rem;
+    }
+    .pattern-node {
+      padding:.28rem .75rem; border-radius:999px;
+      font-weight:600; white-space:nowrap;
+    }
+    .pn-done { background:#0f172a; border:1px solid #1e293b; color:#475569; }
+    .pn-active { background:#312e81; border:1px solid #4338ca; color:#a5b4fc; }
+    .pn-arrow { color:#334155; font-size:.8rem; }
+
+    /* ── Card ── */
+    .card {
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:16px; padding:1.4rem 1.5rem;
+      margin-bottom:1.3rem; max-width:920px;
+      margin-left:auto; margin-right:auto;
+    }
+    .card-title { font-size:.68rem; font-weight:700; text-transform:uppercase;
+                  letter-spacing:.1em; color:var(--border2); margin-bottom:1rem; }
+
+    /* ── Controls ── */
+    .controls { display:flex; flex-wrap:wrap; align-items:center; gap:.6rem; }
+    label { font-size:.8rem; color:#94a3b8; }
+    input[type=text] {
+      background:var(--bg); border:1px solid var(--border);
+      border-radius:8px; color:#f1f5f9;
+      padding:.38rem .65rem; font-size:.88rem;
+      width:190px; font-family:monospace; letter-spacing:.08em;
+    }
+    input:focus { outline:2px solid #818cf8; outline-offset:2px; }
+
+    .btn { padding:.4rem 1rem; border-radius:8px; border:none;
+           font-size:.8rem; font-weight:600; cursor:pointer;
+           transition:opacity .15s, transform .1s; }
+    .btn:hover  { opacity:.85; transform:translateY(-1px); }
+    .btn:active { transform:none; }
+    .btn-primary { background:#6366f1; color:#fff; }
+    .btn-play    { background:#10b981; color:#fff; min-width:86px; }
+    .btn-pause   { background:#f59e0b; color:#000; min-width:86px; }
+    .btn-reset   { background:var(--surface2); border:1px solid var(--border); color:#64748b; }
+    .btn-step    { background:var(--surface2); border:1px solid var(--border); color:#64748b; }
+    .btn-ex      { background:var(--surface2); border:1px solid var(--border); color:#64748b; font-size:.72rem; }
+
+    .speed-row { display:flex; align-items:center; gap:.5rem; margin-top:.6rem; }
+    input[type=range] { accent-color:#818cf8; width:110px; }
+
+    /* ── Phase banner ── */
+    .phase-banner {
+      display:flex; align-items:center; gap:.6rem;
+      padding:.45rem .9rem; border-radius:10px;
+      font-size:.77rem; font-weight:700;
+      margin-bottom:1.1rem; border:1px solid transparent;
+      transition:all .3s;
+    }
+    .phase-expand { background:#031a0e; border-color:#059669; color:#6ee7b7; }
+    .phase-shrink { background:#1c0a2a; border-color:#7c3aed; color:#c4b5fd; }
+    .phase-idle   { background:#0f111a; border-color:#1e293b; color:#334155; }
+    .phase-dot    { width:8px; height:8px; border-radius:50%; flex-shrink:0; animation:none; }
+    .phase-expand .phase-dot { background:#10b981; box-shadow:0 0 6px #10b981; }
+    .phase-shrink .phase-dot { background:#8b5cf6; box-shadow:0 0 6px #8b5cf6; }
+    .phase-idle   .phase-dot { background:#374151; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .phase-shrink .phase-dot { animation: pulse 1s infinite; }
+
+    /* ── String display ── */
+    .string-wrap { overflow-x:auto; padding-bottom:.5rem; }
+    .string-scene { display:flex; flex-direction:column; gap:4px; min-width:max-content; }
+    .string-row   { display:flex; align-items:flex-end; gap:5px; }
+    .char-col     { display:flex; flex-direction:column; align-items:center; gap:3px; }
+    .char-idx     { font-size:.6rem; color:var(--border2); font-weight:600; }
+
+    .char-cell {
+      width:52px; height:56px; border-radius:11px;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      font-size:1.4rem; font-weight:800; font-family:monospace;
+      border:2px solid transparent;
+      transition:all .22s;
+      position:relative;
+    }
+
+    .char-cell.default  { background:var(--surface2); border-color:var(--border); color:var(--border2); }
+    .char-cell.slot0    { background:#3b0764; border-color:var(--c0); color:#fbcfe8; transform:translateY(-6px);
+                          box-shadow:0 7px 20px rgba(244,114,182,.2); }
+    .char-cell.slot1    { background:#431407; border-color:var(--c1); color:#fed7aa; transform:translateY(-6px);
+                          box-shadow:0 7px 20px rgba(251,146,60,.2); }
+    .char-cell.leaving  { background:#2d0808; border-color:#ef4444; color:#fca5a5; transform:translateY(3px); }
+    .char-cell.done     { background:var(--bg); border-color:#0f111a; color:#1e2138; }
+    .char-cell.best-s0  { background:#1e0a3b; border-color:#a855f7; color:#d8b4fe; transform:translateY(-6px);
+                          box-shadow:0 7px 20px rgba(168,85,247,.2); }
+    .char-cell.best-s1  { background:#1a0f00; border-color:#d97706; color:#fde68a; transform:translateY(-6px);
+                          box-shadow:0 7px 20px rgba(217,119,6,.2); }
+
+    /* frequency pip */
+    .freq-pip {
+      position:absolute; bottom:5px;
+      font-size:.52rem; font-weight:700; opacity:.8;
+    }
+
+    /* bracket */
+    .bracket-row { display:flex; gap:5px; min-width:max-content; }
+    .bracket-cell { width:52px; height:7px; display:flex; align-items:center; }
+    .bracket-line { height:3px; width:100%; border-radius:2px;
+                    opacity:0; transition:opacity .2s, background .2s; }
+    .bracket-line.v        { opacity:1; background:#10b981; }
+    .bracket-line.v.shrink { background:#8b5cf6; }
+    .bracket-line.v.best   { background:#a855f7; }
+
+    /* ── Two-slot panel ── */
+    .slots-row {
+      display:grid; grid-template-columns:1fr 1fr; gap:.85rem; margin-top:1rem;
+    }
+    .slot-card {
+      border-radius:13px; padding:.9rem 1rem;
+      border:2px solid var(--border);
+      background:var(--bg);
+      transition:border-color .25s, box-shadow .25s, background .25s;
+    }
+    .slot-card.active0 { border-color:var(--c0); box-shadow:0 0 16px rgba(244,114,182,.15); background:#1a0321; }
+    .slot-card.active1 { border-color:var(--c1); box-shadow:0 0 16px rgba(251,146,60,.15);  background:#1a0800; }
+    .slot-card.empty   { opacity:.4; }
+
+    .slot-top { display:flex; align-items:center; gap:.55rem; margin-bottom:.55rem; }
+    .slot-num { font-size:.65rem; font-weight:700; text-transform:uppercase;
+                letter-spacing:.08em; color:var(--muted); }
+    .slot-char { font-family:monospace; font-size:1.5rem; font-weight:900; }
+    .slot-count{ font-size:1rem; font-weight:700; margin-left:auto;
+                 font-variant-numeric:tabular-nums; }
+
+    .slot-bar-wrap { background:var(--border); border-radius:999px; height:7px; overflow:hidden; margin-bottom:.5rem; }
+    .slot-bar      { height:100%; border-radius:999px; transition:width .3s ease; }
+
+    .slot-pips { display:flex; flex-wrap:wrap; gap:3px; min-height:18px; }
+    .slot-pip  { width:18px; height:18px; border-radius:5px;
+                 font-family:monospace; font-size:.8rem; font-weight:800;
+                 display:flex; align-items:center; justify-content:center;
+                 transition:all .2s; }
+
+    /* ── Info grid ── */
+    .info-grid {
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr));
+      gap:.6rem; margin-top:1rem;
+    }
+    .info-box { background:var(--bg); border:1px solid #141827;
+                border-radius:10px; padding:.65rem .85rem; text-align:center; }
+    .info-label { font-size:.6rem; text-transform:uppercase; letter-spacing:.08em;
+                  color:var(--border2); margin-bottom:.22rem; }
+    .info-val   { font-size:1.25rem; font-weight:700; color:#f1f5f9; font-variant-numeric:tabular-nums; }
+    .info-val.pink   { color:#fbcfe8; }
+    .info-val.orange { color:#fed7aa; }
+    .info-val.purple { color:#c4b5fd; }
+    .info-val.yellow { color:#fde68a; }
+    .info-val.red    { color:#fca5a5; }
+
+    /* ── Best window ── */
+    .best-strip {
+      display:flex; align-items:center; gap:.75rem;
+      background:#0f111a; border:1px solid #1e2138;
+      border-radius:12px; padding:.8rem 1rem; margin-top:1rem;
+      transition:all .3s;
+    }
+    .best-strip.new { background:#1e0a3b; border-color:#7c3aed; }
+    .best-label  { font-size:.7rem; color:var(--border2); white-space:nowrap; }
+    .best-strip.new .best-label { color:#6d28d9; }
+    .best-chars  { flex:1; font-family:monospace; font-size:1.2rem; font-weight:900;
+                   letter-spacing:.1em; color:#a855f7; }
+    .best-len    { font-size:1.6rem; font-weight:800; color:#c4b5fd; }
+
+    /* ── Step log ── */
+    .step-log {
+      background:#07090f; border:1px solid #0f111a;
+      border-radius:10px; padding:.8rem 1rem;
+      font-size:.79rem; line-height:1.65; color:#475569;
+      min-height:64px; max-height:120px; overflow-y:auto; margin-top:1rem;
+    }
+    .log-expand { color:#6ee7b7; font-weight:600; }
+    .log-shrink { color:#c4b5fd; font-weight:600; }
+    .log-best   { color:#a855f7; font-weight:700; }
+    .log-c0     { color:var(--c0); font-weight:700; font-family:monospace; }
+    .log-c1     { color:var(--c1); font-weight:700; font-family:monospace; }
+    .log-done   { color:#22c55e; font-weight:700; }
+
+    /* ── Playback ── */
+    .playback-row { display:flex; flex-wrap:wrap; gap:.55rem; margin-top:1.1rem; align-items:center; }
+
+    /* ── Legend ── */
+    .legend { display:flex; flex-wrap:wrap; gap:.65rem; margin-top:.9rem; }
+    .legend-item { display:flex; align-items:center; gap:.35rem; font-size:.71rem; color:#334155; }
+    .legend-dot  { width:10px; height:10px; border-radius:3px; flex-shrink:0; }
+
+    /* ── Pattern comparison ── */
+    .pattern-table {
+      width:100%; border-collapse:separate; border-spacing:0;
+      font-size:.78rem; margin-top:.5rem;
+    }
+    .pattern-table th, .pattern-table td {
+      padding:.55rem .8rem; border-bottom:1px solid var(--border);
+    }
+    .pattern-table th { color:var(--border2); font-weight:600;
+                        text-transform:uppercase; letter-spacing:.07em; font-size:.65rem; }
+    .pattern-table tr:last-child td { border-bottom:none; }
+    .pattern-table td:first-child { color:#94a3b8; }
+    .pattern-table .highlight-row td { background:#1e0a3b; }
+    .pattern-table .highlight-row td:first-child { color:#c4b5fd; font-weight:700; }
+
+    .insight-block {
+      background:var(--bg); border-left:3px solid #8b5cf6;
+      border-radius:0 10px 10px 0; padding:.8rem 1rem;
+      margin-top:.75rem; font-size:.79rem; color:#475569; line-height:1.6;
+    }
+
+    .complexity-row { display:flex; gap:.7rem; flex-wrap:wrap; margin-top:.65rem; }
+    .complexity-badge {
+      display:inline-flex; align-items:center; gap:.4rem;
+      padding:.28rem .75rem; border-radius:999px; font-size:.73rem; font-weight:700;
+    }
+    .badge-time  { background:#052e16; border:1px solid #166534; color:#86efac; }
+    .badge-space { background:#200a3a; border:1px solid #4c1d95; color:#c4b5fd; }
+    .badge-dot   { width:7px; height:7px; border-radius:50%; }
+    .badge-time  .badge-dot { background:#22c55e; }
+    .badge-space .badge-dot { background:#8b5cf6; }
+
+    ::-webkit-scrollbar { width:5px; height:5px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+    @media(max-width:500px) {
+      .char-cell { width:40px; height:46px; font-size:1.1rem; }
+      .bracket-cell { width:40px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1>Longest Substring with at Most 2 Distinct Characters</h1>
+  <p>K=2 fixed · Dynamic Sliding Window + charFreq HashMap</p>
+  <a href="https://leetcode.com/problems/longest-substring-with-at-most-two-distinct-characters/" target="_blank">↗ LeetCode #159</a>
+</div>
+
+<!-- Pattern chain -->
+<div class="pattern-chain">
+  <div class="pattern-node pn-done">Fixed Window (K avg)</div>
+  <div class="pn-arrow">→</div>
+  <div class="pattern-node pn-done">Smallest subarray ≥ S</div>
+  <div class="pn-arrow">→</div>
+  <div class="pattern-node pn-done">K Distinct chars</div>
+  <div class="pn-arrow">→</div>
+  <div class="pattern-node pn-done">Fruits (K=2)</div>
+  <div class="pn-arrow">→</div>
+  <div class="pattern-node pn-active">⬤ 2 Distinct (K=2)</div>
+</div>
+
+<!-- Config -->
+<div class="card">
+  <div class="card-title">Configuration</div>
+  <div class="controls">
+    <label>String</label>
+    <input type="text" id="strInput" value="eceba"/>
+    <button class="btn btn-primary" onclick="applyConfig()">Apply</button>
+  </div>
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.55rem;">
+    <button class="btn btn-ex" onclick="loadEx('eceba')">"eceba" → 3</button>
+    <button class="btn btn-ex" onclick="loadEx('ccaabbb')">"ccaabbb" → 5</button>
+    <button class="btn btn-ex" onclick="loadEx('abaccc')">"abaccc" → 4</button>
+    <button class="btn btn-ex" onclick="loadEx('aab')">"aab" → 3</button>
+    <button class="btn btn-ex" onclick="loadEx('abcabcabc')">"abcabcabc" → 2</button>
+  </div>
+  <div class="speed-row">
+    <label>Speed</label>
+    <input type="range" id="speedRange" min="1" max="5" value="3" oninput="onSpeedChange(this.value)"/>
+    <span id="speedLabel" style="font-size:.73rem;color:var(--border2);">Normal</span>
+  </div>
+</div>
+
+<!-- Visualizer -->
+<div class="card">
+  <!-- Phase banner -->
+  <div class="phase-banner phase-idle" id="phaseBanner">
+    <div class="phase-dot"></div>
+    <span id="phaseText">Ready — press Play to begin</span>
+  </div>
+
+  <!-- String -->
+  <div class="string-wrap">
+    <div class="string-scene">
+      <div class="string-row"  id="stringRow"></div>
+      <div class="bracket-row" id="bracketRow"></div>
+    </div>
+  </div>
+
+  <!-- Two character slots -->
+  <div class="slots-row">
+    <!-- Slot 0 -->
+    <div class="slot-card empty" id="slot0">
+      <div class="slot-top">
+        <div class="slot-num">Slot 1</div>
+        <div class="slot-char" id="s0Char" style="color:var(--c0);">–</div>
+        <div class="slot-count" id="s0Count" style="color:var(--c0);">0</div>
+      </div>
+      <div class="slot-bar-wrap">
+        <div class="slot-bar" id="s0Bar" style="width:0%;background:var(--c0);"></div>
+      </div>
+      <div class="slot-pips" id="s0Pips"></div>
+    </div>
+    <!-- Slot 1 -->
+    <div class="slot-card empty" id="slot1">
+      <div class="slot-top">
+        <div class="slot-num">Slot 2</div>
+        <div class="slot-char" id="s1Char" style="color:var(--c1);">–</div>
+        <div class="slot-count" id="s1Count" style="color:var(--c1);">0</div>
+      </div>
+      <div class="slot-bar-wrap">
+        <div class="slot-bar" id="s1Bar" style="width:0%;background:var(--c1);"></div>
+      </div>
+      <div class="slot-pips" id="s1Pips"></div>
+    </div>
+  </div>
+
+  <!-- Info grid -->
+  <div class="info-grid">
+    <div class="info-box">
+      <div class="info-label">windowStart</div>
+      <div class="info-val purple" id="iStart">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">windowEnd</div>
+      <div class="info-val" id="iEnd">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Window</div>
+      <div class="info-val yellow" id="iWin">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Distinct</div>
+      <div class="info-val" id="iDistinct">0</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">maxLength</div>
+      <div class="info-val pink" id="iMax">0</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Step</div>
+      <div class="info-val" id="iStep">0 / 0</div>
+    </div>
+  </div>
+
+  <!-- Best strip -->
+  <div class="best-strip" id="bestStrip">
+    <div class="best-label">Longest valid substring</div>
+    <div class="best-chars" id="bestChars">–</div>
+    <div class="best-len"   id="bestLen">0</div>
+  </div>
+
+  <!-- Log -->
+  <div class="step-log" id="stepLog">Press <strong>Play</strong> to start the animation.</div>
+
+  <!-- Playback -->
+  <div class="playback-row">
+    <button class="btn btn-play" id="btnPlay" onclick="playPause()">▶ Play</button>
+    <button class="btn btn-reset" onclick="resetAnim()">↺ Reset</button>
+    <button class="btn btn-step"  onclick="stepFwd()">Step →</button>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c0)"></div> Slot 1 character</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--c1)"></div> Slot 2 character</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div> Leaving window</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#a855f7"></div> Best window</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#0f111a"></div> Processed</div>
+  </div>
+</div>
+
+<!-- Pattern comparison table -->
+<div class="card">
+  <div class="card-title">How This Fits the Pattern</div>
+
+  <table class="pattern-table">
+    <thead>
+      <tr>
+        <th>Problem</th>
+        <th>Constraint</th>
+        <th>K</th>
+        <th>Data structure</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Longest Substring — K Distinct</td>
+        <td>distinct chars ≤ K</td>
+        <td>any K</td>
+        <td>charFrequency {}</td>
+      </tr>
+      <tr>
+        <td>Fruits into Baskets</td>
+        <td>distinct types ≤ 2</td>
+        <td>K = 2</td>
+        <td>fruitMap (Map)</td>
+      </tr>
+      <tr class="highlight-row">
+        <td>⬤ This problem</td>
+        <td>distinct chars ≤ 2</td>
+        <td>K = 2</td>
+        <td>charFreq {}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="insight-block">
+    <strong style="color:#c4b5fd;">All three are the same algorithm.</strong>
+    The only differences are the label on K and whether the input is a string or an array.
+    Once you understand the dynamic sliding window with a frequency map, you can solve all three
+    in under a minute — just swap K=2 for any value and rename the variable.
+  </div>
+
+  <div class="complexity-row" style="margin-top:.9rem;">
+    <div class="complexity-badge badge-time"><div class="badge-dot"></div> O(N) time</div>
+    <div class="complexity-badge badge-space"><div class="badge-dot"></div> O(K) = O(1) space — at most 3 keys in map</div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────
+//  State
+// ─────────────────────────────────
+let str  = 'eceba';
+let steps= [];
+let currentStep = -1;
+let playing = false;
+let timer   = null;
+
+const SPEEDS = {1:1700,2:1100,3:680,4:330,5:140};
+const SPEED_LABELS = {1:'Slow',2:'Relaxed',3:'Normal',4:'Fast',5:'Turbo'};
+
+// Each unique char gets a slot index (0 or 1) while it's in the window
+// so cells can be colored per slot
+let slotMap = {}; // char -> 0|1
+
+// ─────────────────────────────────
+//  DOM Build
+// ─────────────────────────────────
+function buildDOM() {
+  slotMap = {};
+  const row  = document.getElementById('stringRow');
+  const brRow= document.getElementById('bracketRow');
+  row.innerHTML = ''; brRow.innerHTML = '';
+
+  [...str].forEach((ch, i) => {
+    const col = document.createElement('div');
+    col.className = 'char-col';
+
+    const idx = document.createElement('div');
+    idx.className = 'char-idx';
+    idx.textContent = i;
+
+    const cell = document.createElement('div');
+    cell.className = 'char-cell default';
+    cell.id = `cell-${i}`;
+    cell.textContent = ch;
+
+    col.append(idx, cell);
+    row.appendChild(col);
+
+    const bc = document.createElement('div');
+    bc.className = 'bracket-cell';
+    const bl = document.createElement('div');
+    bl.className = 'bracket-line';
+    bl.id = `brk-${i}`;
+    bc.appendChild(bl);
+    brRow.appendChild(bc);
+  });
+}
+
+// ─────────────────────────────────
+//  Step Builder
+// ─────────────────────────────────
+function buildSteps() {
+  const frames = [];
+  let windowStart = 0, maxLength = 0;
+  let bestStart = -1, bestEnd = -1;
+  const freq = {};
+
+  for (let windowEnd = 0; windowEnd < str.length; windowEnd++) {
+    const endChar = str[windowEnd];
+    freq[endChar] = (freq[endChar] || 0) + 1;
+
+    const snap1 = snap(freq);
+    frames.push({
+      windowStart, windowEnd, freq: snap1,
+      distinct: Object.keys(snap1).length,
+      maxLength, bestStart, bestEnd,
+      phase: 'expand', leavingIdx: -1, leavingChar: '',
+      isNewBest: false,
+      log: buildExpandLog(windowEnd, endChar, snap1)
+    });
+
+    while (Object.keys(freq).length > 2) {
+      const startChar = str[windowStart];
+      freq[startChar]--;
+      const removed = freq[startChar] === 0;
+      if (removed) delete freq[startChar];
+
+      const snap2 = snap(freq);
+      frames.push({
+        windowStart, windowEnd, freq: snap2,
+        distinct: Object.keys(snap2).length,
+        maxLength, bestStart, bestEnd,
+        phase: 'shrink', leavingIdx: windowStart, leavingChar: startChar,
+        isNewBest: false,
+        log: buildShrinkLog(windowStart, startChar, snap2, removed)
+      });
+
+      windowStart++;
+    }
+
+    const curLen    = windowEnd - windowStart + 1;
+    const isNewBest = curLen > maxLength;
+    if (isNewBest) { maxLength = curLen; bestStart = windowStart; bestEnd = windowEnd; }
+
+    const last = frames[frames.length - 1];
+    last.maxLength = maxLength;
+    last.bestStart = bestStart;
+    last.bestEnd   = bestEnd;
+    last.isNewBest = isNewBest;
+    if (isNewBest)
+      last.log += ` <span class="log-best">🏆 New max = ${maxLength} ("${str.slice(bestStart, bestEnd + 1)}").</span>`;
+  }
+  return frames;
+}
+
+function snap(m) {
+  const o = {}; for (const [k,v] of Object.entries(m)) o[k] = v; return o;
+}
+
+function buildExpandLog(we, ch, freq) {
+  const d = Object.keys(freq).length;
+  const slots = Object.entries(freq)
+    .map(([c,n]) => `<span class="${c === Object.keys(freq)[0] ? 'log-c0' : 'log-c1'}">'${c}'×${n}</span>`)
+    .join(' ');
+  return `<span class="log-expand">EXPAND →</span> Added <strong>'${ch}'</strong> [idx ${we}]. charFreq: {${slots}}. Distinct = ${d}${d > 2 ? '. <span class="log-shrink">3rd char — shrink!</span>' : ' ≤ 2 ✓'}`;
+}
+
+function buildShrinkLog(ws, ch, freq, removed) {
+  const slots = Object.keys(freq).length
+    ? Object.entries(freq).map(([c,n]) => `<span class="${c === Object.keys(freq)[0] ? 'log-c0' : 'log-c1'}">'${c}'×${n}</span>`).join(' ')
+    : 'empty';
+  return `<span class="log-shrink">SHRINK ←</span> Removed <strong>'${ch}'</strong> [idx ${ws}]${removed ? ' — deleted from map' : ''}. charFreq: {${slots}}.`;
+}
+
+// ─────────────────────────────────
+//  Frame Renderer
+// ─────────────────────────────────
+function applyFrame(f) {
+  const { windowStart, windowEnd, freq, distinct, maxLength,
+          bestStart, bestEnd, phase, leavingIdx, leavingChar, isNewBest } = f;
+
+  // update slot assignment
+  const keys = Object.keys(freq);
+  const newSlotMap = {};
+  keys.forEach((k, i) => {
+    // try to keep previous slot assignment for continuity
+    if (slotMap[k] !== undefined && !newSlotMap[slotMap[k]]) {
+      newSlotMap[k] = slotMap[k];
+    }
+  });
+  keys.forEach(k => {
+    if (newSlotMap[k] === undefined) {
+      newSlotMap[k] = Object.values(newSlotMap).includes(0) ? 1 : 0;
+    }
+  });
+  slotMap = newSlotMap;
+
+  // reset cells
+  [...str].forEach((_, i) => {
+    const c = document.getElementById(`cell-${i}`);
+    c.className = 'char-cell default';
+    c.style.background = c.style.borderColor = c.style.color = '';
+    const b = document.getElementById(`brk-${i}`);
+    if (b) b.className = 'bracket-line';
+  });
+
+  // best window
+  if (bestStart >= 0) {
+    for (let i = bestStart; i <= bestEnd; i++) {
+      const c = document.getElementById(`cell-${i}`);
+      const ch = str[i];
+      const slot = slotMap[ch] ?? 0;
+      c.className = slot === 0 ? 'char-cell best-s0' : 'char-cell best-s1';
+      const b = document.getElementById(`brk-${i}`);
+      if (b) b.className = 'bracket-line v best';
+    }
+  }
+
+  // current window
+  for (let i = windowStart; i <= windowEnd; i++) {
+    const c = document.getElementById(`cell-${i}`);
+    const b = document.getElementById(`brk-${i}`);
+    const ch = str[i];
+    if (phase === 'shrink' && i === leavingIdx) {
+      c.className = 'char-cell leaving';
+      c.style.background = c.style.borderColor = c.style.color = '';
+    } else {
+      const slot = slotMap[ch] ?? 0;
+      c.className = slot === 0 ? 'char-cell slot0' : 'char-cell slot1';
+      c.style.background = c.style.borderColor = c.style.color = '';
+    }
+    if (b) b.className = `bracket-line v${phase === 'shrink' ? ' shrink' : ''}`;
+  }
+
+  // faded past
+  for (let i = 0; i < windowStart; i++) {
+    const c = document.getElementById(`cell-${i}`);
+    if (!c.className.includes('best')) { c.className = 'char-cell done'; c.style.background=c.style.borderColor=c.style.color=''; }
+    const b = document.getElementById(`brk-${i}`);
+    if (b && !b.className.includes('best')) b.className = 'bracket-line';
+  }
+
+  // phase banner
+  const banner = document.getElementById('phaseBanner');
+  const ptext  = document.getElementById('phaseText');
+  if (phase === 'expand') {
+    banner.className = 'phase-banner phase-expand';
+    ptext.textContent = `EXPAND → Added '${str[windowEnd]}' at index ${windowEnd}`;
+  } else {
+    banner.className = 'phase-banner phase-shrink';
+    ptext.textContent = `SHRINK ← Removing '${leavingChar}' at index ${leavingIdx}`;
+  }
+
+  // slots panel
+  renderSlots(freq);
+
+  // info
+  document.getElementById('iStart').textContent    = windowStart;
+  document.getElementById('iEnd').textContent      = windowEnd;
+  document.getElementById('iWin').textContent      = `${str.slice(windowStart, windowEnd + 1)}`;
+  document.getElementById('iDistinct').textContent = distinct;
+  document.getElementById('iDistinct').style.color = distinct > 2 ? '#fca5a5' : '#6ee7b7';
+  document.getElementById('iMax').textContent      = maxLength;
+  document.getElementById('iStep').textContent     = `${currentStep + 1} / ${steps.length}`;
+
+  // best strip
+  const strip = document.getElementById('bestStrip');
+  strip.className = 'best-strip' + (isNewBest ? ' new' : '');
+  document.getElementById('bestChars').textContent =
+    bestStart >= 0 ? `"${str.slice(bestStart, bestEnd + 1)}"` : '–';
+  document.getElementById('bestLen').textContent = maxLength || '0';
+
+  document.getElementById('stepLog').innerHTML = f.log;
+}
+
+function renderSlots(freq) {
+  const COLORS = ['var(--c0)', 'var(--c1)'];
+  const ACTIVE_CLS = ['active0', 'active1'];
+
+  for (let s = 0; s < 2; s++) {
+    const card    = document.getElementById(`slot${s}`);
+    const charEl  = document.getElementById(`s${s}Char`);
+    const cntEl   = document.getElementById(`s${s}Count`);
+    const barEl   = document.getElementById(`s${s}Bar`);
+    const pipsEl  = document.getElementById(`s${s}Pips`);
+
+    // find which char is assigned to this slot
+    const ch = Object.keys(slotMap).find(k => slotMap[k] === s);
+    const cnt = ch ? (freq[ch] || 0) : 0;
+
+    if (ch && cnt > 0) {
+      card.className = `slot-card ${ACTIVE_CLS[s]}`;
+      charEl.textContent = ch;
+      cntEl.textContent  = cnt;
+
+      const maxCnt = Math.max(...Object.values(freq), 1);
+      barEl.style.width = `${(cnt / maxCnt) * 100}%`;
+
+      pipsEl.innerHTML = '';
+      for (let d = 0; d < cnt; d++) {
+        const pip = document.createElement('div');
+        pip.className = 'slot-pip';
+        pip.style.background = COLORS[s] + '33';
+        pip.style.border = `1px solid ${COLORS[s]}`;
+        pip.style.color  = COLORS[s];
+        pip.textContent  = ch;
+        pipsEl.appendChild(pip);
+      }
+    } else {
+      card.className = 'slot-card empty';
+      charEl.textContent = '–';
+      cntEl.textContent  = '0';
+      barEl.style.width  = '0%';
+      pipsEl.innerHTML   = '';
+    }
+  }
+}
+
+// ─────────────────────────────────
+//  Playback
+// ─────────────────────────────────
+function playPause() {
+  if (playing) { clearInterval(timer); playing = false; setBtnPlay(false); }
+  else {
+    if (currentStep >= steps.length - 1) resetAnim();
+    playing = true; setBtnPlay(true);
+    advance(); timer = setInterval(advance, getDelay());
+  }
+}
+
+function advance() {
+  if (currentStep < steps.length - 1) {
+    currentStep++; applyFrame(steps[currentStep]);
+  } else {
+    clearInterval(timer); playing = false; setBtnPlay(false);
+    const f = steps[steps.length - 1];
+    document.getElementById('stepLog').innerHTML +=
+      ` <span class="log-done">✓ Answer = ${f.maxLength}</span>`;
+    document.getElementById('phaseBanner').className = 'phase-banner phase-expand';
+    document.getElementById('phaseText').textContent =
+      `Done! Longest substring = "${str.slice(f.bestStart, f.bestEnd + 1)}" (length ${f.maxLength})`;
+  }
+}
+
+function stepFwd() {
+  if (playing) { clearInterval(timer); playing = false; setBtnPlay(false); }
+  if (currentStep < steps.length - 1) { currentStep++; applyFrame(steps[currentStep]); }
+}
+
+function resetAnim() {
+  clearInterval(timer); playing = false; setBtnPlay(false);
+  currentStep = -1; slotMap = {};
+  buildDOM();
+  ['iStart','iEnd','iWin'].forEach(id => document.getElementById(id).textContent = '–');
+  document.getElementById('iDistinct').textContent = '0';
+  document.getElementById('iDistinct').style.color = '#6ee7b7';
+  document.getElementById('iMax').textContent   = '0';
+  document.getElementById('iStep').textContent  = `0 / ${steps.length}`;
+  document.getElementById('stepLog').textContent = 'Press Play to start the animation.';
+  document.getElementById('bestChars').textContent = '–';
+  document.getElementById('bestLen').textContent   = '0';
+  document.getElementById('bestStrip').className   = 'best-strip';
+  document.getElementById('phaseBanner').className = 'phase-banner phase-idle';
+  document.getElementById('phaseText').textContent = 'Ready — press Play to begin';
+  for (let s = 0; s < 2; s++) {
+    document.getElementById(`slot${s}`).className      = 'slot-card empty';
+    document.getElementById(`s${s}Char`).textContent   = '–';
+    document.getElementById(`s${s}Count`).textContent  = '0';
+    document.getElementById(`s${s}Bar`).style.width    = '0%';
+    document.getElementById(`s${s}Pips`).innerHTML     = '';
+  }
+}
+
+function setBtnPlay(p) {
+  const btn = document.getElementById('btnPlay');
+  btn.className   = p ? 'btn btn-pause' : 'btn btn-play';
+  btn.textContent = p ? '⏸ Pause' : '▶ Play';
+}
+function getDelay() { return SPEEDS[document.getElementById('speedRange').value] || 680; }
+function onSpeedChange(v) {
+  document.getElementById('speedLabel').textContent = SPEED_LABELS[v];
+  if (playing) { clearInterval(timer); timer = setInterval(advance, getDelay()); }
+}
+
+// ─────────────────────────────────
+//  Config
+// ─────────────────────────────────
+function applyConfig() {
+  const s = document.getElementById('strInput').value.trim().replace(/\s/g,'');
+  if (!s.length) return;
+  str = s; rebuildAll();
+}
+
+function loadEx(s) {
+  str = s;
+  document.getElementById('strInput').value = s;
+  rebuildAll();
+}
+
+function rebuildAll() {
+  steps = buildSteps();
+  resetAnim();
+}
+
+// ─────────────────────────────────
+//  Init
+// ─────────────────────────────────
+rebuildAll();
+</script>
+</body>
+</html>
