@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smallest Subarray with Given Sum – Dynamic Sliding Window</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0d0f1a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 2rem 1rem 5rem;
+    }
+
+    /* ── Header ── */
+    .header { text-align: center; margin-bottom: 2rem; }
+    .header h1 { font-size: 1.5rem; font-weight: 800; color: #f8fafc; letter-spacing: -0.02em; }
+    .header p  { color: #475569; font-size: 0.82rem; margin-top: 0.3rem; }
+    .header a  { color: #818cf8; text-decoration: none; font-size: 0.76rem; }
+    .header a:hover { text-decoration: underline; }
+
+    /* ── Pill badge ── */
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      margin-left: 0.5rem;
+      vertical-align: middle;
+    }
+    .badge-new { background: #312e81; color: #a5b4fc; }
+
+    /* ── Card ── */
+    .card {
+      background: #161829;
+      border: 1px solid #222540;
+      border-radius: 16px;
+      padding: 1.4rem 1.5rem;
+      margin-bottom: 1.3rem;
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .card-title {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #334155;
+      margin-bottom: 1rem;
+    }
+
+    /* ── Controls ── */
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+    label { font-size: 0.8rem; color: #94a3b8; }
+    input[type=number], input[type=text] {
+      background: #0d0f1a; border: 1px solid #252844;
+      border-radius: 8px; color: #f1f5f9;
+      padding: 0.38rem 0.65rem; font-size: 0.8rem;
+    }
+    input[type=number] { width: 70px; }
+    input[type=text]   { width: 230px; }
+    input:focus { outline: 2px solid #6366f1; outline-offset: 2px; }
+
+    .btn {
+      padding: 0.4rem 1rem; border-radius: 8px; border: none;
+      font-size: 0.8rem; font-weight: 600; cursor: pointer;
+      transition: opacity .15s, transform .1s;
+    }
+    .btn:hover   { opacity: .85; transform: translateY(-1px); }
+    .btn:active  { transform: none; }
+    .btn-primary { background: #6366f1; color: #fff; }
+    .btn-play    { background: #10b981; color: #fff; min-width: 86px; }
+    .btn-pause   { background: #f59e0b; color: #000; min-width: 86px; }
+    .btn-reset   { background: #1a2035; border: 1px solid #2d3252; color: #94a3b8; }
+    .btn-step    { background: #1a2035; border: 1px solid #2d3252; color: #94a3b8; }
+
+    .speed-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.6rem; }
+    input[type=range] { accent-color: #6366f1; width: 110px; }
+
+    /* ── Phase Banner ── */
+    .phase-banner {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.5rem 0.9rem;
+      border-radius: 10px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      margin-bottom: 1.1rem;
+      transition: background 0.3s, border-color 0.3s;
+      border: 1px solid transparent;
+    }
+    .phase-expand { background: #0f1f0a; border-color: #22c55e; color: #86efac; }
+    .phase-shrink { background: #1a0a2e; border-color: #a855f7; color: #d8b4fe; }
+    .phase-idle   { background: #111827; border-color: #1f2937; color: #475569; }
+
+    .phase-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .phase-expand .phase-dot { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+    .phase-shrink .phase-dot { background: #a855f7; box-shadow: 0 0 6px #a855f7; }
+    .phase-idle   .phase-dot { background: #374151; }
+
+    /* ── Array ── */
+    .array-wrap { overflow-x: auto; padding-bottom: 0.4rem; }
+    .array-scene { display: flex; flex-direction: column; gap: 4px; min-width: max-content; }
+    .array-row   { display: flex; align-items: flex-end; gap: 6px; }
+    .cell-col    { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .cell-idx    { font-size: 0.6rem; color: #334155; font-weight: 600; }
+
+    .cell {
+      width: 54px; height: 54px; border-radius: 11px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.15rem; font-weight: 700;
+      border: 2px solid transparent;
+      position: relative;
+      transition: background .22s, border-color .22s, transform .22s, box-shadow .22s;
+    }
+
+    .cell.default  { background: #161829; border-color: #222540; color: #475569; }
+    .cell.expand   { background: #0c2a14; border-color: #22c55e; color: #86efac; transform: translateY(-4px);
+                     box-shadow: 0 5px 18px rgba(34,197,94,.2); }
+    .cell.shrink   { background: #220d3a; border-color: #a855f7; color: #d8b4fe; transform: translateY(-4px);
+                     box-shadow: 0 5px 18px rgba(168,85,247,.2); }
+    .cell.leaving  { background: #3b0f0f; border-color: #ef4444; color: #fca5a5; transform: translateY(2px); }
+    .cell.done     { background: #0d0f1a; border-color: #1e2030; color: #1e2030; }
+    .cell.best-win { background: #0c1e3b; border-color: #3b82f6; color: #93c5fd; transform: translateY(-5px);
+                     box-shadow: 0 6px 22px rgba(59,130,246,.25); }
+
+    .cell-bar {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      border-radius: 0 0 9px 9px; opacity: 0.18;
+    }
+
+    /* ── Bracket ── */
+    .bracket-row { display: flex; gap: 6px; min-width: max-content; }
+    .bracket-cell { width: 54px; height: 8px; display: flex; align-items: center; }
+    .bracket-line {
+      height: 3px; width: 100%; border-radius: 2px;
+      opacity: 0; transition: opacity .2s, background .2s;
+    }
+    .bracket-line.visible       { opacity: 1; background: #22c55e; }
+    .bracket-line.visible.shrink{ background: #a855f7; }
+    .bracket-line.visible.best  { background: #3b82f6; }
+
+    /* ── S Threshold indicator ── */
+    .threshold-row {
+      display: flex; align-items: center; gap: 0.8rem;
+      background: #0d0f1a; border: 1px solid #1e2030;
+      border-radius: 10px; padding: 0.6rem 1rem;
+      margin-top: 1rem;
+    }
+    .threshold-label { font-size: 0.72rem; color: #475569; white-space: nowrap; }
+    .threshold-bar-wrap {
+      flex: 1; background: #1a1d2e; border-radius: 999px; height: 8px; overflow: hidden;
+    }
+    .threshold-fill {
+      height: 100%; border-radius: 999px;
+      transition: width .35s ease, background .35s;
+      background: linear-gradient(90deg, #22c55e, #6366f1);
+    }
+    .threshold-reached {
+      background: linear-gradient(90deg, #a855f7, #ec4899) !important;
+    }
+    .threshold-vals {
+      font-size: 0.78rem; font-weight: 700; white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Info grid ── */
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(115px, 1fr));
+      gap: 0.6rem; margin-top: 1rem;
+    }
+    .info-box {
+      background: #0d0f1a; border: 1px solid #1a1d2e;
+      border-radius: 10px; padding: 0.65rem 0.85rem; text-align: center;
+    }
+    .info-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; color: #334155; margin-bottom: 0.25rem; }
+    .info-val   { font-size: 1.25rem; font-weight: 700; color: #f1f5f9; font-variant-numeric: tabular-nums; }
+    .info-val.green  { color: #86efac; }
+    .info-val.purple { color: #d8b4fe; }
+    .info-val.blue   { color: #93c5fd; }
+    .info-val.yellow { color: #fde68a; }
+
+    /* ── Min length tracker ── */
+    .min-tracker {
+      display: flex; align-items: center; gap: 0.8rem;
+      background: #0c1e3b; border: 1px solid #1e3a5f;
+      border-radius: 12px; padding: 0.85rem 1.1rem; margin-top: 1rem;
+      transition: background .3s, border-color .3s;
+    }
+    .min-tracker.new-best { background: #0a2a1c; border-color: #166534; }
+    .min-tracker-label { font-size: 0.72rem; color: #1e3a5f; }
+    .min-tracker.new-best .min-tracker-label { color: #166534; }
+    .min-windows {
+      flex: 1; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    }
+    .min-chip {
+      padding: 0.2rem 0.6rem; border-radius: 6px;
+      font-size: 0.75rem; font-weight: 600;
+      border: 1px solid #2d3252; background: #0d0f1a; color: #334155;
+      transition: all .2s;
+    }
+    .min-chip.current { border-color: #a855f7; background: #220d3a; color: #d8b4fe; }
+    .min-chip.best    { border-color: #3b82f6; background: #0c1e3b; color: #93c5fd; }
+    .min-result { font-size: 1.5rem; font-weight: 800; color: #93c5fd; min-width: 60px; text-align: right; }
+
+    /* ── Step Log ── */
+    .step-log {
+      background: #09090f; border: 1px solid #161829;
+      border-radius: 10px; padding: 0.8rem 1rem;
+      font-size: 0.79rem; line-height: 1.65; color: #64748b;
+      min-height: 66px; max-height: 120px; overflow-y: auto;
+      margin-top: 1rem;
+    }
+    .log-expand { color: #86efac; font-weight: 600; }
+    .log-shrink { color: #d8b4fe; font-weight: 600; }
+    .log-best   { color: #93c5fd; font-weight: 700; }
+    .log-sum    { color: #fde68a; font-weight: 700; }
+    .log-done   { color: #22c55e; font-weight: 700; }
+    .log-hi     { color: #a5b4fc; }
+
+    /* ── Playback ── */
+    .playback-row { display: flex; flex-wrap: wrap; gap: 0.55rem; margin-top: 1.1rem; align-items: center; }
+
+    /* ── Legend ── */
+    .legend { display: flex; flex-wrap: wrap; gap: 0.65rem; margin-top: 0.9rem; }
+    .legend-item { display: flex; align-items: center; gap: 0.35rem; font-size: 0.71rem; color: #475569; }
+    .legend-dot  { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+
+    /* ── Key difference panel ── */
+    .diff-panel {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; margin-top: 0.5rem;
+    }
+    @media (max-width: 560px) { .diff-panel { grid-template-columns: 1fr; } }
+
+    .diff-card { border-radius: 12px; padding: 1rem 1.1rem; }
+    .diff-card.fixed   { background: #0f111a; border: 1px solid #1e2234; }
+    .diff-card.dynamic { background: #0e0d1f; border: 1px solid #312e81; }
+    .diff-card h3 { font-size: 0.85rem; margin-bottom: 0.4rem; }
+    .diff-card.fixed   h3 { color: #64748b; }
+    .diff-card.dynamic h3 { color: #a5b4fc; }
+    .diff-card p { font-size: 0.76rem; line-height: 1.55; color: #475569; }
+
+    .insight {
+      background: #0d0f1a; border-left: 3px solid #a855f7;
+      border-radius: 0 10px 10px 0; padding: 0.8rem 1rem;
+      margin-top: 0.75rem; font-size: 0.8rem; color: #64748b; line-height: 1.6;
+    }
+
+    /* ── Complexity badge ── */
+    .complexity-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.75rem; }
+    .complexity-badge {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      padding: 0.3rem 0.8rem; border-radius: 999px;
+      font-size: 0.75rem; font-weight: 700;
+    }
+    .badge-time  { background: #052e16; border: 1px solid #166534; color: #86efac; }
+    .badge-space { background: #0f172a; border: 1px solid #1e293b; color: #64748b; }
+    .badge-dot   { width: 7px; height: 7px; border-radius: 50%; }
+    .badge-time  .badge-dot  { background: #22c55e; }
+    .badge-space .badge-dot  { background: #334155; }
+
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #252840; border-radius: 3px; }
+
+    @media (max-width: 500px) {
+      .cell { width: 42px; height: 42px; font-size: 0.9rem; }
+      .bracket-cell { width: 42px; }
+      input[type=text] { width: 175px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1>Smallest Subarray with a Given Sum
+    <span class="badge badge-new">Dynamic Window</span>
+  </h1>
+  <p>Variable-size Sliding Window Pattern · Step-by-step visualization</p>
+  <a href="https://leetcode.com/problems/minimum-size-subarray-sum/" target="_blank">↗ LeetCode #209</a>
+</div>
+
+<!-- Config -->
+<div class="card">
+  <div class="card-title">Configuration</div>
+  <div class="controls">
+    <label>Array</label>
+    <input type="text" id="arrInput" value="2, 1, 5, 2, 3, 2"/>
+    <label>S (target sum)</label>
+    <input type="number" id="sInput" value="7" min="1"/>
+    <button class="btn btn-primary" onclick="applyConfig()">Apply</button>
+  </div>
+  <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.5rem;">
+    <button class="btn btn-reset" style="font-size:0.72rem;" onclick="loadExample(0)">Example 1: [2,1,5,2,3,2] S=7 → 2</button>
+    <button class="btn btn-reset" style="font-size:0.72rem;" onclick="loadExample(1)">Example 2: [2,1,5,2,8] S=7 → 1</button>
+    <button class="btn btn-reset" style="font-size:0.72rem;" onclick="loadExample(2)">Example 3: [3,4,1,1,6] S=8 → 3</button>
+  </div>
+  <div class="speed-row">
+    <label>Speed</label>
+    <input type="range" id="speedRange" min="1" max="5" value="3" oninput="onSpeedChange(this.value)"/>
+    <span id="speedLabel" style="font-size:0.73rem;color:#334155;">Normal</span>
+  </div>
+</div>
+
+<!-- Visualizer -->
+<div class="card">
+  <!-- Phase banner -->
+  <div class="phase-banner phase-idle" id="phaseBanner">
+    <div class="phase-dot"></div>
+    <span id="phaseText">Ready — press Play to begin</span>
+  </div>
+
+  <div class="array-wrap">
+    <div class="array-scene">
+      <div class="array-row"   id="arrayRow"></div>
+      <div class="bracket-row" id="bracketRow"></div>
+    </div>
+  </div>
+
+  <!-- S threshold bar -->
+  <div class="threshold-row">
+    <div class="threshold-label">Window Sum vs S</div>
+    <div class="threshold-bar-wrap">
+      <div class="threshold-fill" id="threshFill" style="width:0%"></div>
+    </div>
+    <div class="threshold-vals">
+      <span id="threshSum" style="color:#86efac;">0</span>
+      <span style="color:#334155;"> / </span>
+      <span id="threshS" style="color:#a5b4fc;">7</span>
+    </div>
+  </div>
+
+  <!-- Info grid -->
+  <div class="info-grid">
+    <div class="info-box">
+      <div class="info-label">Window Start</div>
+      <div class="info-val purple" id="iStart">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Window End</div>
+      <div class="info-val green" id="iEnd">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Window Size</div>
+      <div class="info-val yellow" id="iSize">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Window Sum</div>
+      <div class="info-val yellow" id="iSum">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Min Length</div>
+      <div class="info-val blue" id="iMin">∞</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Step</div>
+      <div class="info-val" id="iStep">0 / 0</div>
+    </div>
+  </div>
+
+  <!-- Min tracker -->
+  <div class="min-tracker" id="minTracker">
+    <div class="min-tracker-label">Min Length Found</div>
+    <div class="min-windows" id="minWindows">
+      <span style="font-size:0.72rem;color:#1e2030;">none yet</span>
+    </div>
+    <div class="min-result" id="minResult">∞</div>
+  </div>
+
+  <!-- Log -->
+  <div class="step-log" id="stepLog">Press <strong>Play</strong> to start the animation.</div>
+
+  <!-- Playback -->
+  <div class="playback-row">
+    <button class="btn btn-play" id="btnPlay" onclick="playPause()">▶ Play</button>
+    <button class="btn btn-reset" onclick="resetAnim()">↺ Reset</button>
+    <button class="btn btn-step"  onclick="stepForward()">Step →</button>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div> Expanding (sum &lt; S)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#a855f7"></div> Shrinking (sum ≥ S)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div> Leaving window</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div> Best window so far</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#1e2030"></div> Processed</div>
+  </div>
+</div>
+
+<!-- Complexity + Concept -->
+<div class="card">
+  <div class="card-title">What Makes This Different</div>
+  <div class="diff-panel">
+    <div class="diff-card fixed">
+      <h3>Fixed-size window (prev problems)</h3>
+      <p>Window size is always K. Slide forward exactly one step at a time — one element in, one out. Simple and predictable.</p>
+    </div>
+    <div class="diff-card dynamic">
+      <h3>Variable-size window (this problem)</h3>
+      <p>Window size flexes. <strong style="color:#a5b4fc;">Expand</strong> by moving windowEnd right until sum ≥ S. Then <strong style="color:#a5b4fc;">shrink</strong> from windowStart while sum ≥ S, recording the smallest valid window each time.</p>
+    </div>
+  </div>
+  <div class="insight">
+    <strong style="color:#d8b4fe;">Why O(N) and not O(N²)?</strong>
+    Even though there's a while loop inside the for loop, each element is added to the window <em>once</em> (outer loop) and removed from the window <em>at most once</em> (inner while). So the total number of operations across the entire run is at most 2N → <strong style="color:#a5b4fc;">O(N + N) = O(N)</strong>.
+  </div>
+  <div class="complexity-row">
+    <div class="complexity-badge badge-time"><div class="badge-dot"></div> O(N) time</div>
+    <div class="complexity-badge badge-space"><div class="badge-dot"></div> O(1) space</div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────
+//  State
+// ─────────────────────────────────
+let arr = [2, 1, 5, 2, 3, 2];
+let S   = 7;
+
+let steps       = [];
+let currentStep = -1;
+let playing     = false;
+let timer       = null;
+
+const SPEEDS = {1:1600, 2:1050, 3:650, 4:320, 5:140};
+const SPEED_LABELS = {1:'Slow', 2:'Relaxed', 3:'Normal', 4:'Fast', 5:'Turbo'};
+
+const EXAMPLES = [
+  { arr:[2,1,5,2,3,2], S:7 },
+  { arr:[2,1,5,2,8],   S:7 },
+  { arr:[3,4,1,1,6],   S:8 },
+];
+
+// ─────────────────────────────────
+//  DOM Build
+// ─────────────────────────────────
+function buildDOM() {
+  const row  = document.getElementById('arrayRow');
+  const brRow= document.getElementById('bracketRow');
+  row.innerHTML = ''; brRow.innerHTML = '';
+
+  const maxV = Math.max(...arr, 1);
+
+  arr.forEach((v, i) => {
+    const col  = document.createElement('div');
+    col.className = 'cell-col';
+
+    const idx = document.createElement('div');
+    idx.className = 'cell-idx';
+    idx.textContent = i;
+
+    const cell = document.createElement('div');
+    cell.className = 'cell default';
+    cell.id = `cell-${i}`;
+
+    const span = document.createElement('span');
+    span.textContent = v;
+    span.style.position = 'relative';
+    span.style.zIndex = '1';
+    cell.appendChild(span);
+
+    const bar = document.createElement('div');
+    bar.className = 'cell-bar';
+    bar.style.height = `${Math.max(5, (v / maxV) * 70)}%`;
+    bar.style.background = '#6366f1';
+    cell.appendChild(bar);
+
+    col.append(idx, cell);
+    row.appendChild(col);
+
+    const bc = document.createElement('div');
+    bc.className = 'bracket-cell';
+    const bl = document.createElement('div');
+    bl.className = 'bracket-line';
+    bl.id = `bracket-${i}`;
+    bc.appendChild(bl);
+    brRow.appendChild(bc);
+  });
+
+  document.getElementById('threshS').textContent = S;
+}
+
+// ─────────────────────────────────
+//  Step Builder
+// ─────────────────────────────────
+function buildSteps() {
+  const frames = [];
+  let windowSum  = 0;
+  let minLength  = Infinity;
+  let windowStart= 0;
+  let bestStart  = -1;
+  let bestEnd    = -1;
+  let candidateWindows = []; // { start, end, len }
+
+  for (let windowEnd = 0; windowEnd < arr.length; windowEnd++) {
+    windowSum += arr[windowEnd];
+
+    // EXPAND frame
+    frames.push({
+      windowStart, windowEnd, windowSum, minLength,
+      bestStart, bestEnd,
+      candidateWindows: [...candidateWindows],
+      phase: 'expand',
+      leavingIdx: -1,
+      isNewBest: false,
+      log: `<span class="log-expand">EXPAND →</span> Added <span class="log-hi">arr[${windowEnd}] = ${arr[windowEnd]}</span>. Window [${windowStart}…${windowEnd}] sum = <span class="log-sum">${windowSum}</span>${windowSum >= S ? ` ≥ S=${S}. <span class="log-shrink">Start shrinking!</span>` : ` < S=${S}. Keep expanding.`}`
+    });
+
+    // SHRINK loop
+    while (windowSum >= S) {
+      const curLen  = windowEnd - windowStart + 1;
+      const isNew   = curLen < minLength;
+      if (isNew) {
+        minLength = curLen;
+        bestStart = windowStart;
+        bestEnd   = windowEnd;
+        candidateWindows.push({ start: windowStart, end: windowEnd, len: curLen });
+      }
+
+      frames.push({
+        windowStart, windowEnd, windowSum, minLength,
+        bestStart, bestEnd,
+        candidateWindows: [...candidateWindows],
+        phase: 'shrink',
+        leavingIdx: windowStart,
+        isNewBest: isNew,
+        log: buildShrinkLog(windowStart, windowEnd, windowSum, curLen, minLength, isNew)
+      });
+
+      windowSum -= arr[windowStart];
+      windowStart++;
+
+      if (windowSum >= S) {
+        frames.push({
+          windowStart, windowEnd, windowSum, minLength,
+          bestStart, bestEnd,
+          candidateWindows: [...candidateWindows],
+          phase: 'shrink',
+          leavingIdx: windowStart,
+          isNewBest: false,
+          log: `<span class="log-shrink">SHRINK ←</span> After removing, window [${windowStart}…${windowEnd}] sum = <span class="log-sum">${windowSum}</span> still ≥ S=${S}. Shrink again.`
+        });
+      }
+    }
+  }
+
+  return frames;
+}
+
+function buildShrinkLog(ws, we, sum, curLen, minLen, isNew) {
+  const parts = [
+    `<span class="log-shrink">SHRINK ←</span> Window [${ws}…${we}] sum = <span class="log-sum">${sum}</span> ≥ S=${S}.`,
+    `Size = <span class="log-hi">${curLen}</span>.`
+  ];
+  if (isNew) {
+    parts.push(`<span class="log-best">🏆 New minimum! ${curLen} < previous ${minLen === curLen ? '∞' : minLen + 1}.</span>`);
+  } else {
+    parts.push(`Not smaller than current min = <span class="log-best">${minLen}</span>.`);
+  }
+  parts.push(`Removing <span class="log-hi">arr[${ws}] = ${arr[ws]}</span>.`);
+  return parts.join(' ');
+}
+
+// ─────────────────────────────────
+//  Frame Renderer
+// ─────────────────────────────────
+function applyFrame(f) {
+  // reset
+  arr.forEach((_, i) => {
+    document.getElementById(`cell-${i}`).className = 'cell default';
+    const b = document.getElementById(`bracket-${i}`);
+    if (b) b.className = 'bracket-line';
+  });
+
+  const { windowStart, windowEnd, windowSum, minLength, bestStart, bestEnd,
+          phase, leavingIdx, isNewBest, candidateWindows } = f;
+
+  // best window (blue) — background
+  if (bestStart >= 0) {
+    for (let i = bestStart; i <= bestEnd; i++) {
+      document.getElementById(`cell-${i}`).className = 'cell best-win';
+      const b = document.getElementById(`bracket-${i}`);
+      if (b) b.className = 'bracket-line visible best';
+    }
+  }
+
+  // current window
+  for (let i = windowStart; i <= windowEnd; i++) {
+    const c = document.getElementById(`cell-${i}`);
+    const b = document.getElementById(`bracket-${i}`);
+    if (phase === 'shrink' && i === leavingIdx) {
+      c.className = 'cell leaving';
+    } else if (phase === 'shrink') {
+      c.className = 'cell shrink';
+    } else {
+      c.className = 'cell expand';
+    }
+    if (b) b.className = `bracket-line visible${phase === 'shrink' ? ' shrink' : ''}`;
+  }
+
+  // faded past
+  for (let i = 0; i < windowStart; i++) {
+    const c = document.getElementById(`cell-${i}`);
+    if (!c.className.includes('best-win')) c.className = 'cell done';
+    const b = document.getElementById(`bracket-${i}`);
+    if (b && !b.className.includes('best')) b.className = 'bracket-line';
+  }
+
+  // phase banner
+  const banner = document.getElementById('phaseBanner');
+  const phaseText = document.getElementById('phaseText');
+  if (phase === 'expand') {
+    banner.className = 'phase-banner phase-expand';
+    phaseText.textContent = `EXPANDING → Adding arr[${windowEnd}] = ${arr[windowEnd]}`;
+  } else {
+    banner.className = 'phase-banner phase-shrink';
+    phaseText.textContent = `SHRINKING ← Removing arr[${leavingIdx}] = ${arr[leavingIdx] !== undefined ? arr[leavingIdx] : ''}`;
+  }
+
+  // threshold bar
+  const pct = Math.min(100, (windowSum / S) * 100);
+  const fill = document.getElementById('threshFill');
+  fill.style.width = pct + '%';
+  fill.className = 'threshold-fill' + (windowSum >= S ? ' threshold-reached' : '');
+  document.getElementById('threshSum').textContent = windowSum;
+  document.getElementById('threshSum').style.color = windowSum >= S ? '#d8b4fe' : '#86efac';
+
+  // info panel
+  document.getElementById('iStart').textContent = windowStart;
+  document.getElementById('iEnd').textContent   = windowEnd;
+  document.getElementById('iSize').textContent  = windowEnd - windowStart + 1;
+  document.getElementById('iSum').textContent   = windowSum;
+  document.getElementById('iMin').textContent   = minLength === Infinity ? '∞' : minLength;
+  document.getElementById('iStep').textContent  = `${currentStep + 1} / ${steps.length}`;
+
+  // min tracker
+  const tracker = document.getElementById('minTracker');
+  const winDiv  = document.getElementById('minWindows');
+  const minRes  = document.getElementById('minResult');
+  tracker.className = 'min-tracker' + (isNewBest ? ' new-best' : '');
+  minRes.textContent = minLength === Infinity ? '∞' : minLength;
+
+  if (candidateWindows.length === 0) {
+    winDiv.innerHTML = '<span style="font-size:0.72rem;color:#1e2030;">none yet</span>';
+  } else {
+    winDiv.innerHTML = candidateWindows.map((w, idx) => {
+      const isBest = w.len === minLength;
+      const isCur  = idx === candidateWindows.length - 1 && isNewBest;
+      let cls = 'min-chip';
+      if (isCur)  cls += ' current';
+      else if (isBest) cls += ' best';
+      return `<span class="${cls}">len=${w.len} [${w.start}…${w.end}]</span>`;
+    }).join('');
+  }
+
+  // log
+  document.getElementById('stepLog').innerHTML = f.log;
+}
+
+// ─────────────────────────────────
+//  Playback
+// ─────────────────────────────────
+function playPause() {
+  if (playing) {
+    clearInterval(timer); playing = false; setBtnPlay(false);
+  } else {
+    if (currentStep >= steps.length - 1) resetAnim();
+    playing = true; setBtnPlay(true);
+    advanceStep();
+    timer = setInterval(advanceStep, getDelay());
+  }
+}
+
+function advanceStep() {
+  if (currentStep < steps.length - 1) {
+    currentStep++;
+    applyFrame(steps[currentStep]);
+  } else {
+    clearInterval(timer); playing = false; setBtnPlay(false);
+    const f = steps[steps.length - 1];
+    const ans = f.minLength === Infinity ? 0 : f.minLength;
+    document.getElementById('stepLog').innerHTML +=
+      ` <span class="log-done">✓ Answer = ${ans}</span>`;
+    document.getElementById('phaseBanner').className = 'phase-banner phase-expand';
+    document.getElementById('phaseText').textContent = `Done! Minimum length = ${ans}`;
+  }
+}
+
+function stepForward() {
+  if (playing) { clearInterval(timer); playing = false; setBtnPlay(false); }
+  if (currentStep < steps.length - 1) { currentStep++; applyFrame(steps[currentStep]); }
+}
+
+function resetAnim() {
+  clearInterval(timer); playing = false; setBtnPlay(false);
+  currentStep = -1;
+  buildDOM();
+  ['iStart','iEnd','iSize','iSum'].forEach(id => document.getElementById(id).textContent = '–');
+  document.getElementById('iMin').textContent  = '∞';
+  document.getElementById('iStep').textContent = `0 / ${steps.length}`;
+  document.getElementById('stepLog').textContent = 'Press Play to start the animation.';
+  document.getElementById('threshFill').style.width = '0%';
+  document.getElementById('threshFill').className = 'threshold-fill';
+  document.getElementById('threshSum').textContent = '0';
+  document.getElementById('threshSum').style.color = '#86efac';
+  document.getElementById('minResult').textContent = '∞';
+  document.getElementById('minWindows').innerHTML = '<span style="font-size:0.72rem;color:#1e2030;">none yet</span>';
+  document.getElementById('minTracker').className = 'min-tracker';
+  document.getElementById('phaseBanner').className = 'phase-banner phase-idle';
+  document.getElementById('phaseText').textContent = 'Ready — press Play to begin';
+}
+
+function setBtnPlay(isPlaying) {
+  const btn = document.getElementById('btnPlay');
+  btn.className = isPlaying ? 'btn btn-pause' : 'btn btn-play';
+  btn.textContent = isPlaying ? '⏸ Pause' : '▶ Play';
+}
+
+function getDelay() { return SPEEDS[document.getElementById('speedRange').value] || 650; }
+
+function onSpeedChange(v) {
+  document.getElementById('speedLabel').textContent = SPEED_LABELS[v];
+  if (playing) { clearInterval(timer); timer = setInterval(advanceStep, getDelay()); }
+}
+
+// ─────────────────────────────────
+//  Config & Examples
+// ─────────────────────────────────
+function applyConfig() {
+  const raw = document.getElementById('arrInput').value;
+  const parsed = raw.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+  if (!parsed.length) return;
+  const s = parseInt(document.getElementById('sInput').value);
+  if (isNaN(s) || s < 1) {
+    document.getElementById('stepLog').innerHTML = '<span style="color:#fca5a5;">S must be a positive number.</span>';
+    return;
+  }
+  arr = parsed; S = s;
+  rebuildAll();
+}
+
+function loadExample(idx) {
+  const ex = EXAMPLES[idx];
+  arr = ex.arr; S = ex.S;
+  document.getElementById('arrInput').value = arr.join(', ');
+  document.getElementById('sInput').value   = S;
+  rebuildAll();
+}
+
+function rebuildAll() {
+  steps = buildSteps();
+  resetAnim();
+}
+
+// ─────────────────────────────────
+//  Init
+// ─────────────────────────────────
+rebuildAll();
+</script>
+</body>
+</html>
