@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Longest Subarray of 1s after Replacement – Sliding Window</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:     #08090f;
+      --surf:   #0d0f1e;
+      --surf2:  #111326;
+      --border: #191c32;
+      --bord2:  #20243c;
+      --muted:  #334155;
+      --text:   #e2e8f0;
+      --one:    #22c55e;   /* green  – 1s */
+      --zero:   #ef4444;   /* red    – 0s to replace */
+      --free:   #3b82f6;   /* blue   – free budget */
+      --best:   #a855f7;   /* purple – best window */
+      --amber:  #f59e0b;   /* amber  – maxOnesCount */
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1rem 5rem;
+    }
+
+    /* ── Header ── */
+    .header { text-align:center; margin-bottom:1.8rem; }
+    .header h1 { font-size:1.45rem; font-weight:800; color:#f8fafc; letter-spacing:-.02em; }
+    .header p  { color:#475569; font-size:.82rem; margin-top:.3rem; }
+    .header a  { color:var(--one); text-decoration:none; font-size:.76rem; }
+    .header a:hover { text-decoration:underline; }
+
+    /* ── Connection strip ── */
+    .connection-strip {
+      max-width:960px; margin:0 auto 1.3rem;
+      display:grid; grid-template-columns:1fr 1fr; gap:.8rem;
+    }
+    @media(max-width:560px){ .connection-strip { grid-template-columns:1fr; } }
+    .cs-box { border-radius:12px; padding:.9rem 1rem; font-size:.77rem; line-height:1.55; }
+    .cs-box.prev { background:#0f172a; border:1px solid #1e293b; color:#475569; }
+    .cs-box.curr { background:#031a0e; border:1px solid #166534; color:#6ee7b7; }
+    .cs-box h3   { font-size:.8rem; margin-bottom:.35rem; }
+    .cs-box.prev h3 { color:#334155; }
+    .cs-box.curr h3 { color:var(--one); }
+    code { font-family:monospace; font-size:.8rem; background:#ffffff12; padding:.1rem .3rem; border-radius:4px; }
+
+    /* ── Card ── */
+    .card {
+      background:var(--surf); border:1px solid var(--border);
+      border-radius:16px; padding:1.4rem 1.5rem;
+      margin-bottom:1.3rem; max-width:960px;
+      margin-left:auto; margin-right:auto;
+    }
+    .card-title { font-size:.67rem; font-weight:700; text-transform:uppercase;
+                  letter-spacing:.1em; color:var(--bord2); margin-bottom:.9rem; }
+
+    /* ── Controls ── */
+    .controls { display:flex; flex-wrap:wrap; align-items:center; gap:.6rem; }
+    label { font-size:.8rem; color:#94a3b8; }
+    input[type=text] {
+      background:var(--bg); border:1px solid var(--border);
+      border-radius:8px; color:#f1f5f9;
+      padding:.38rem .65rem; font-size:.85rem; width:260px;
+      font-family:monospace; letter-spacing:.06em;
+    }
+    input[type=number] {
+      background:var(--bg); border:1px solid var(--border);
+      border-radius:8px; color:#f1f5f9;
+      padding:.38rem .65rem; font-size:.85rem; width:62px;
+    }
+    input:focus { outline:2px solid var(--one); outline-offset:2px; }
+    .btn { padding:.4rem 1rem; border-radius:8px; border:none;
+           font-size:.8rem; font-weight:600; cursor:pointer;
+           transition:opacity .15s, transform .1s; }
+    .btn:hover  { opacity:.85; transform:translateY(-1px); }
+    .btn:active { transform:none; }
+    .btn-primary { background:var(--one); color:#000; }
+    .btn-play    { background:var(--one); color:#fff; min-width:86px; }
+    .btn-pause   { background:var(--amber); color:#000; min-width:86px; }
+    .btn-reset   { background:var(--surf2); border:1px solid var(--border); color:#64748b; }
+    .btn-step    { background:var(--surf2); border:1px solid var(--border); color:#64748b; }
+    .btn-ex      { background:var(--surf2); border:1px solid var(--border); color:#64748b; font-size:.72rem; }
+    .speed-row   { display:flex; align-items:center; gap:.5rem; margin-top:.6rem; }
+    input[type=range] { accent-color:var(--one); width:110px; }
+
+    /* ── Phase banner ── */
+    .phase-banner {
+      display:flex; align-items:center; gap:.65rem;
+      padding:.5rem .95rem; border-radius:11px;
+      font-size:.77rem; font-weight:700;
+      margin-bottom:1.1rem; border:1px solid transparent; transition:all .3s;
+    }
+    .ph-one    { background:#031a0e; border-color:var(--one);  color:#86efac; }
+    .ph-zero   { background:#200606; border-color:var(--zero); color:#fca5a5; }
+    .ph-shrink { background:#200d00; border-color:var(--amber); color:#fde68a; }
+    .ph-idle   { background:#0f111a; border-color:#1e293b; color:#334155; }
+    .ph-dot    { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+    .ph-one    .ph-dot { background:var(--one);  box-shadow:0 0 6px var(--one); }
+    .ph-zero   .ph-dot { background:var(--zero); box-shadow:0 0 6px var(--zero); }
+    .ph-shrink .ph-dot { background:var(--amber); box-shadow:0 0 6px var(--amber);
+                         animation:blink .6s infinite; }
+    .ph-idle   .ph-dot { background:#374151; }
+    @keyframes blink { 0%,100%{opacity:1}50%{opacity:.2} }
+
+    /* ── Array display ── */
+    .array-wrap { overflow-x:auto; padding-bottom:.5rem; }
+    .array-scene { display:flex; flex-direction:column; gap:4px; min-width:max-content; }
+    .array-row  { display:flex; gap:5px; }
+    .cell-col   { display:flex; flex-direction:column; align-items:center; gap:3px; }
+    .cell-idx   { font-size:.6rem; color:var(--bord2); font-weight:600; }
+
+    .arr-cell {
+      width:52px; height:58px; border-radius:11px;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+      font-size:1.5rem; font-weight:900; font-family:monospace;
+      border:2px solid transparent; transition:all .22s; position:relative;
+    }
+    .cell-role { font-size:.52rem; font-weight:700; font-family:'Segoe UI',sans-serif;
+                 position:relative; z-index:1; }
+
+    /* States */
+    .arr-cell.default { background:var(--surf2); border-color:var(--border); color:var(--bord2); }
+    .arr-cell.default .cell-role { color:var(--border); }
+
+    /* 1 in window */
+    .arr-cell.is-one  { background:#052e16; border-color:var(--one); color:#86efac;
+                        transform:translateY(-6px); box-shadow:0 7px 22px rgba(34,197,94,.22); }
+    .arr-cell.is-one .cell-role { color:#16a34a; }
+
+    /* 0 being replaced */
+    .arr-cell.is-zero-used { background:#1a0606; border-color:var(--zero); color:#fca5a5;
+                             transform:translateY(-4px); box-shadow:0 5px 16px rgba(239,68,68,.18); }
+    .arr-cell.is-zero-used .cell-role { color:#dc2626; }
+
+    /* 0 extra — over budget */
+    .arr-cell.is-zero-over { background:#2d0606; border-color:var(--zero); color:#fca5a5;
+                             transform:translateY(2px); animation:shake-cell .3s; }
+    @keyframes shake-cell { 0%,100%{transform:translateY(2px) translateX(0)} 40%{transform:translateY(2px) translateX(-3px)} 70%{transform:translateY(2px) translateX(3px)} }
+
+    /* shrinking — cell leaving window */
+    .arr-cell.leaving { background:#200d00; border-color:var(--amber); color:#fde68a;
+                        transform:translateY(3px); }
+    .arr-cell.leaving .cell-role { color:var(--amber); }
+
+    .arr-cell.done    { background:var(--bg); border-color:#0f111a; color:#1e2236; }
+    .arr-cell.done .cell-role { color:#0f111a; }
+
+    /* best window */
+    .arr-cell.best-one  { background:#190b2e; border-color:var(--best); color:#e9d5ff;
+                          transform:translateY(-6px); box-shadow:0 7px 20px rgba(168,85,247,.2); }
+    .arr-cell.best-zero { background:#150d20; border-color:var(--best); color:#ddd6fe;
+                          transform:translateY(-5px); }
+
+    /* bracket */
+    .bracket-row { display:flex; gap:5px; min-width:max-content; }
+    .bracket-cell { width:52px; height:7px; display:flex; align-items:center; }
+    .bracket-line { height:3px; width:100%; border-radius:2px;
+                    opacity:0; transition:opacity .2s, background .2s; }
+    .bracket-line.v      { opacity:1; background:var(--one); }
+    .bracket-line.v.shr  { background:var(--amber); }
+    .bracket-line.v.best { background:var(--best); }
+
+    /* ── Main stats row ── */
+    .stats-row {
+      display:grid; grid-template-columns:1fr 1fr 1fr; gap:.85rem; margin-top:1rem;
+    }
+    @media(max-width:620px){ .stats-row { grid-template-columns:1fr 1fr; } }
+    @media(max-width:400px){ .stats-row { grid-template-columns:1fr; } }
+
+    .stat-card {
+      border-radius:13px; padding:.9rem 1rem;
+      display:flex; flex-direction:column; gap:.4rem;
+      background:var(--bg); border:2px solid var(--border);
+      transition:border-color .25s, box-shadow .25s;
+    }
+    .stat-card.ones-card  { border-color:var(--one);  background:#031a0e;
+                             box-shadow:0 0 16px rgba(34,197,94,.12); }
+    .stat-card.zeros-card { border-color:var(--zero); background:#200606;
+                             box-shadow:0 0 16px rgba(239,68,68,.12); }
+    .stat-card.budget-card{ border-color:var(--free); background:#0c1a2e;
+                             box-shadow:0 0 16px rgba(59,130,246,.12); }
+    .stat-label { font-size:.62rem; text-transform:uppercase; letter-spacing:.09em; }
+    .ones-card  .stat-label { color:#16a34a; }
+    .zeros-card .stat-label { color:#dc2626; }
+    .budget-card.ok   .stat-label { color:#1d4ed8; }
+    .budget-card.over .stat-label { color:#dc2626; }
+    .stat-big   { font-size:2.2rem; font-weight:900; line-height:1; font-variant-numeric:tabular-nums; }
+    .ones-card  .stat-big { color:var(--one); }
+    .zeros-card .stat-big { color:var(--zero); }
+    .budget-card.ok   .stat-big { color:var(--free); }
+    .budget-card.over .stat-big { color:var(--zero); }
+    .stat-sub { font-size:.68rem; }
+    .ones-card  .stat-sub { color:#16a34a; }
+    .zeros-card .stat-sub { color:#991b1b; }
+    .budget-card .stat-sub { color:var(--muted); }
+
+    /* ── Formula row ── */
+    .formula-panel {
+      background:var(--bg); border:1px solid var(--border);
+      border-radius:13px; padding:1rem 1.1rem; margin-top:1rem;
+    }
+    .formula-display {
+      display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;
+      font-family:monospace; background:var(--surf2);
+      border-radius:10px; padding:.65rem .9rem; border:1px solid var(--border);
+      margin-bottom:.85rem;
+    }
+    .f-group { display:flex; align-items:center; gap:.3rem; }
+    .f-sub   { font-size:.62rem; color:var(--bord2); text-transform:uppercase; letter-spacing:.06em; }
+    .f-num   { font-size:1.05rem; font-weight:800; }
+    .f-op    { color:var(--bord2); font-size:1rem; }
+    .f-ones  { color:var(--one); }
+    .f-zeros { color:var(--zero); }
+    .f-win   { color:var(--free); }
+    .f-k     { color:#a78bfa; }
+    .f-result { font-size:.85rem; font-weight:700; padding:.25rem .7rem;
+                border-radius:999px; border:1px solid; white-space:nowrap; }
+    .f-result.ok   { background:#052e16; border-color:#166534; color:#86efac; }
+    .f-result.over { background:#200606; border-color:#991b1b; color:#fca5a5; }
+
+    /* k-slots */
+    .kslots-label { font-size:.65rem; color:var(--bord2); margin-bottom:.5rem; }
+    .kslots-row   { display:flex; flex-wrap:wrap; gap:5px; }
+    .kslot {
+      width:30px; height:30px; border-radius:7px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:1rem; font-weight:900; border:2px solid; transition:all .2s;
+    }
+    .kslot.used { background:#1a0606; border-color:var(--zero); color:#fca5a5; }
+    .kslot.free { background:var(--surf2); border-color:var(--bord2); color:var(--bord2); }
+    .kslot.over { background:#2d0606; border-color:var(--zero); color:#fca5a5;
+                  animation:pulse-slot .5s infinite; }
+    @keyframes pulse-slot { 0%,100%{opacity:1}50%{opacity:.4} }
+
+    /* ── maxOnesCount tracker ── */
+    .ones-tracker {
+      background:var(--bg); border:2px solid var(--amber);
+      border-radius:13px; padding:.9rem 1.1rem; margin-top:1rem;
+      transition:all .3s;
+    }
+    .ones-tracker.decrement { border-color:var(--zero); }
+    .ot-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:.5rem; }
+    .ot-title  { font-size:.65rem; font-weight:700; text-transform:uppercase;
+                 letter-spacing:.09em; color:var(--amber); }
+    .ot-val    { font-size:1.8rem; font-weight:900; color:var(--amber); }
+    .ot-bar-wrap { background:var(--surf2); border-radius:999px; height:8px; overflow:hidden; margin-bottom:.4rem; }
+    .ot-bar      { height:100%; border-radius:999px; background:var(--amber);
+                   transition:width .35s ease; }
+    .ot-note { font-size:.72rem; color:var(--muted); line-height:1.5; }
+    .ot-note.frozen    { color:#d97706; }
+    .ot-note.decrement { color:var(--zero); }
+
+    /* ── Info grid ── */
+    .info-grid {
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(108px,1fr));
+      gap:.6rem; margin-top:1rem;
+    }
+    .info-box { background:var(--bg); border:1px solid #141827;
+                border-radius:10px; padding:.65rem .85rem; text-align:center; }
+    .info-label { font-size:.6rem; text-transform:uppercase; letter-spacing:.08em;
+                  color:var(--bord2); margin-bottom:.22rem; }
+    .info-val   { font-size:1.2rem; font-weight:700; color:#f1f5f9; font-variant-numeric:tabular-nums; }
+    .info-val.green  { color:#86efac; }
+    .info-val.red    { color:#fca5a5; }
+    .info-val.amber  { color:#fde68a; }
+    .info-val.purple { color:#c4b5fd; }
+    .info-val.blue   { color:#93c5fd; }
+
+    /* ── Best strip ── */
+    .best-strip {
+      display:flex; align-items:center; gap:.75rem;
+      background:var(--surf); border:1px solid var(--border);
+      border-radius:12px; padding:.8rem 1rem; margin-top:1rem; transition:all .3s;
+    }
+    .best-strip.new { background:#190b2e; border-color:#7c3aed; }
+    .best-label { font-size:.7rem; color:var(--bord2); white-space:nowrap; }
+    .best-strip.new .best-label { color:#6d28d9; }
+    .best-arr   { flex:1; display:flex; gap:4px; align-items:center; flex-wrap:wrap; }
+    .best-cell  { width:22px; height:22px; border-radius:5px; display:flex; align-items:center;
+                  justify-content:center; font-size:.78rem; font-weight:800; font-family:monospace; }
+    .best-cell.b1 { background:#052e16; color:var(--one); }
+    .best-cell.b0 { background:#1a0606; color:var(--zero); }
+    .best-len   { font-size:1.6rem; font-weight:800; color:#c4b5fd; }
+
+    /* ── Log ── */
+    .step-log {
+      background:#060810; border:1px solid var(--surf);
+      border-radius:10px; padding:.8rem 1rem;
+      font-size:.79rem; line-height:1.65; color:#475569;
+      min-height:66px; max-height:125px; overflow-y:auto; margin-top:1rem;
+    }
+    .log-one  { color:#86efac; font-weight:600; }
+    .log-zero { color:#fca5a5; font-weight:600; }
+    .log-shr  { color:#fde68a; font-weight:600; }
+    .log-best { color:#c4b5fd; font-weight:700; }
+    .log-dec  { color:var(--zero); font-style:italic; }
+    .log-done { color:#22c55e; font-weight:700; }
+
+    .playback-row { display:flex; flex-wrap:wrap; gap:.55rem; margin-top:1.1rem; }
+    .legend { display:flex; flex-wrap:wrap; gap:.65rem; margin-top:.9rem; }
+    .legend-item { display:flex; align-items:center; gap:.35rem; font-size:.71rem; color:#334155; }
+    .legend-dot  { width:10px; height:10px; border-radius:3px; flex-shrink:0; }
+
+    /* ── Comparison panel ── */
+    .compare-grid { display:grid; grid-template-columns:1fr 1fr; gap:.85rem; }
+    @media(max-width:560px){ .compare-grid { grid-template-columns:1fr; } }
+    .cg-box { border-radius:12px; padding:1rem; }
+    .cg-box.prev  { background:#0b0d17; border:1px solid var(--border); }
+    .cg-box.curr  { background:#031a0e; border:1px solid #166534; }
+    .cg-box h3    { font-size:.82rem; margin-bottom:.4rem; }
+    .cg-box.prev h3 { color:var(--muted); }
+    .cg-box.curr h3 { color:var(--one); }
+    .cg-box p { font-size:.76rem; line-height:1.55; color:#334155; }
+
+    .insight-block {
+      background:var(--bg); border-left:3px solid var(--one);
+      border-radius:0 10px 10px 0; padding:.8rem 1rem;
+      margin-top:.75rem; font-size:.79rem; color:#334155; line-height:1.6;
+    }
+    .complexity-row { display:flex; gap:.7rem; flex-wrap:wrap; margin-top:.65rem; }
+    .complexity-badge {
+      display:inline-flex; align-items:center; gap:.4rem;
+      padding:.28rem .75rem; border-radius:999px; font-size:.73rem; font-weight:700;
+    }
+    .badge-time  { background:#052e16; border:1px solid #166534; color:#86efac; }
+    .badge-space { background:#0f172a; border:1px solid #1e293b; color:#475569; }
+    .badge-dot   { width:7px; height:7px; border-radius:50%; }
+    .badge-time  .badge-dot { background:#22c55e; }
+    .badge-space .badge-dot { background:var(--muted); }
+
+    ::-webkit-scrollbar { width:5px; height:5px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+    @media(max-width:500px) {
+      .arr-cell { width:42px; height:50px; font-size:1.2rem; }
+      .bracket-cell { width:42px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Longest Subarray of 1s after Replacement</h1>
+  <p>Replace at most K zeros with ones · Binary Sliding Window · O(N) time · O(1) space</p>
+  <a href="https://leetcode.com/problems/max-consecutive-ones-iii/" target="_blank">↗ LeetCode #1004</a>
+</div>
+
+<!-- Connection -->
+<div class="connection-strip">
+  <div class="cs-box prev">
+    <h3>Previous — Any character, K replacements</h3>
+    Used a <code>charFrequency</code> HashMap and tracked
+    <code>maxRepeatLetterCount</code>. Any character could be the dominant one.
+    maxRepeatLetterCount was <strong>never decremented</strong> on shrink.
+  </div>
+  <div class="cs-box curr">
+    <h3>This problem — Binary (0 and 1 only)</h3>
+    No HashMap needed — just count <code>maxOnesCount</code>.
+    Dominant is always <strong>1</strong>. When a 1 leaves the window, <strong>maxOnesCount is decremented</strong>
+    (unlike the previous problem) because we can count 1s directly.
+  </div>
+</div>
+
+<!-- Config -->
+<div class="card">
+  <div class="card-title">Configuration</div>
+  <div class="controls">
+    <label>Array</label>
+    <input type="text" id="arrInput" value="0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 1"/>
+    <label>K</label>
+    <input type="number" id="kInput" value="2" min="0" max="20"/>
+    <button class="btn btn-primary" onclick="applyConfig()">Apply</button>
+  </div>
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.55rem;">
+    <button class="btn btn-ex" onclick='loadEx([0,1,1,0,0,0,1,1,0,1,1],2)'>[0,1,1,0,0,0,1,1,0,1,1] K=2 → 6</button>
+    <button class="btn btn-ex" onclick='loadEx([0,1,0,0,1,1,0,1,1,0,0,1,1],3)'>[0,1,0,0,1,1,0,1,1,0,0,1,1] K=3 → 9</button>
+    <button class="btn btn-ex" onclick='loadEx([1,1,1,0,0,0,1,1,1,1,0],2)'>[1,1,1,0,0,0,1,1,1,1,0] K=2 → 6</button>
+    <button class="btn btn-ex" onclick='loadEx([0,0,1,1,0,0,1,1,1,0,1,1,0,0,0,1,1,1,1],3)'>[...] K=3 → 10</button>
+  </div>
+  <div class="speed-row">
+    <label>Speed</label>
+    <input type="range" id="speedRange" min="1" max="5" value="3" oninput="onSpeedChange(this.value)"/>
+    <span id="speedLabel" style="font-size:.73rem;color:var(--bord2);">Normal</span>
+  </div>
+</div>
+
+<!-- Visualizer -->
+<div class="card">
+  <div class="phase-banner ph-idle" id="phaseBanner">
+    <div class="ph-dot"></div>
+    <span id="phaseText">Ready — press Play to begin</span>
+  </div>
+
+  <div class="array-wrap">
+    <div class="array-scene">
+      <div class="array-row"  id="arrayRow"></div>
+      <div class="bracket-row" id="bracketRow"></div>
+    </div>
+  </div>
+
+  <!-- Big 3 stats -->
+  <div class="stats-row">
+    <div class="stat-card ones-card">
+      <div class="stat-label">1s in window</div>
+      <div class="stat-big" id="statOnes">0</div>
+      <div class="stat-sub">keep as-is</div>
+    </div>
+    <div class="stat-card zeros-card">
+      <div class="stat-label">0s in window</div>
+      <div class="stat-big" id="statZeros">0</div>
+      <div class="stat-sub" id="statZeroSub">will replace with 1</div>
+    </div>
+    <div class="stat-card budget-card ok" id="budgetCard">
+      <div class="stat-label" id="budgetLabel">Budget used</div>
+      <div class="stat-big" id="statBudget">0 / 2</div>
+      <div class="stat-sub" id="budgetSub">zeros ≤ K</div>
+    </div>
+  </div>
+
+  <!-- Formula -->
+  <div class="formula-panel">
+    <div class="card-title" style="margin-bottom:.6rem;">Budget check: windowSize − maxOnesCount ≤ K ?</div>
+    <div class="formula-display">
+      <div class="f-group">
+        <div>
+          <div class="f-sub">Window</div>
+          <div class="f-num f-win" id="fWin">–</div>
+        </div>
+        <div class="f-op">−</div>
+        <div>
+          <div class="f-sub">maxOnes</div>
+          <div class="f-num f-ones" id="fOnes">–</div>
+        </div>
+        <div class="f-op">=</div>
+        <div>
+          <div class="f-sub">Zeros (replace)</div>
+          <div class="f-num f-zeros" id="fZeros">–</div>
+        </div>
+        <div class="f-op">vs K =</div>
+        <div>
+          <div class="f-sub">&nbsp;</div>
+          <div class="f-num f-k" id="fK">–</div>
+        </div>
+        <div class="f-op">→</div>
+      </div>
+      <div class="f-result ok" id="fResult">–</div>
+    </div>
+
+    <div class="kslots-label">K replacement slots: <span id="usedLabel">0</span> used / <span id="totalLabel">2</span> available</div>
+    <div class="kslots-row" id="kSlotsRow"></div>
+  </div>
+
+  <!-- maxOnesCount tracker -->
+  <div class="ones-tracker" id="onesTracker">
+    <div class="ot-header">
+      <div class="ot-title">maxOnesCount</div>
+      <div class="ot-val" id="otVal">0</div>
+    </div>
+    <div class="ot-bar-wrap">
+      <div class="ot-bar" id="otBar" style="width:0%"></div>
+    </div>
+    <div class="ot-note" id="otNote">Counts 1s seen in the current window. Grows when a 1 enters.</div>
+  </div>
+
+  <!-- Info grid -->
+  <div class="info-grid">
+    <div class="info-box">
+      <div class="info-label">windowStart</div>
+      <div class="info-val blue" id="iStart">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">windowEnd</div>
+      <div class="info-val green" id="iEnd">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Window size</div>
+      <div class="info-val" id="iSize">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">maxOnesCount</div>
+      <div class="info-val amber" id="iOnes">0</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Zeros used</div>
+      <div class="info-val red" id="iZeros">0</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">maxLength</div>
+      <div class="info-val purple" id="iMax">0</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Step</div>
+      <div class="info-val" id="iStep">0 / 0</div>
+    </div>
+  </div>
+
+  <!-- Best strip -->
+  <div class="best-strip" id="bestStrip">
+    <div class="best-label">Longest window of all-1s after replacement</div>
+    <div class="best-arr" id="bestArr"></div>
+    <div class="best-len" id="bestLen">0</div>
+  </div>
+
+  <!-- Log -->
+  <div class="step-log" id="stepLog">Press <strong>Play</strong> to start the animation.</div>
+
+  <!-- Playback -->
+  <div class="playback-row">
+    <button class="btn btn-play" id="btnPlay" onclick="playPause()">▶ Play</button>
+    <button class="btn btn-reset" onclick="resetAnim()">↺ Reset</button>
+    <button class="btn btn-step"  onclick="stepFwd()">Step →</button>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--one)"></div> 1 — keep</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--zero)"></div> 0 — replace with 1</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div> Leaving window (shrink)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--best)"></div> Best window</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#0f111a"></div> Processed</div>
+  </div>
+</div>
+
+<!-- Comparison & Complexity -->
+<div class="card">
+  <div class="card-title">Differences from Previous Problem</div>
+  <div class="compare-grid">
+    <div class="cg-box prev">
+      <h3>Longest Substring after Replacement</h3>
+      <p>Characters: any letter (a–z). Need HashMap to count frequencies.
+         <code>maxRepeatLetterCount</code> is a <strong>high-water mark — never decremented</strong> during shrink,
+         even if the dominant char leaves. Window size never shrinks below its max.</p>
+    </div>
+    <div class="cg-box curr">
+      <h3>This problem (binary)</h3>
+      <p>Characters: only 0 and 1. No HashMap — just increment/decrement a counter.
+         <code>maxOnesCount</code> <strong>is decremented</strong> when a 1 leaves the window,
+         because counting 1s directly is always accurate. Window can shrink by 1.</p>
+    </div>
+  </div>
+  <div class="insight-block">
+    <strong style="color:#86efac;">Why no HashMap?</strong>
+    When input is binary, <em>counting</em> 1s directly is as informative as a full frequency map.
+    We always want to maximise 1s, so there's no need to track which character to keep — it's always 1.
+    Zeros in the window = windowSize − maxOnesCount, which is exactly the number of replacements needed.
+  </div>
+  <div class="complexity-row" style="margin-top:.9rem;">
+    <div class="complexity-badge badge-time"><div class="badge-dot"></div> O(N) time — single pass</div>
+    <div class="complexity-badge badge-space"><div class="badge-dot"></div> O(1) space — no map needed</div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────
+//  State
+// ─────────────────────────────────────────
+let arr  = [0,1,1,0,0,0,1,1,0,1,1];
+let K    = 2;
+let steps= [], currentStep = -1, playing = false, timer = null;
+
+const SPEEDS = {1:1800,2:1200,3:750,4:380,5:150};
+const SPEED_LABELS = {1:'Slow',2:'Relaxed',3:'Normal',4:'Fast',5:'Turbo'};
+
+// ─────────────────────────────────────────
+//  DOM Build
+// ─────────────────────────────────────────
+function buildDOM() {
+  const row  = document.getElementById('arrayRow');
+  const brRow= document.getElementById('bracketRow');
+  row.innerHTML = ''; brRow.innerHTML = '';
+
+  arr.forEach((v, i) => {
+    const col  = document.createElement('div'); col.className = 'cell-col';
+    const idx  = document.createElement('div'); idx.className = 'cell-idx'; idx.textContent = i;
+
+    const cell = document.createElement('div');
+    cell.className = 'arr-cell default';
+    cell.id = `cell-${i}`;
+
+    const num  = document.createElement('div'); num.textContent = v;
+    const role = document.createElement('div'); role.className = 'cell-role'; role.id = `role-${i}`;
+    cell.append(num, role);
+    col.append(idx, cell);
+    row.appendChild(col);
+
+    const bc = document.createElement('div'); bc.className = 'bracket-cell';
+    const bl = document.createElement('div'); bl.className = 'bracket-line'; bl.id = `brk-${i}`;
+    bc.appendChild(bl); brRow.appendChild(bc);
+  });
+
+  buildKSlots();
+  document.getElementById('totalLabel').textContent = K;
+  document.getElementById('fK').textContent = K;
+  document.getElementById('statBudget').textContent = `0 / ${K}`;
+}
+
+function buildKSlots() {
+  const row = document.getElementById('kSlotsRow');
+  row.innerHTML = '';
+  for (let i = 0; i < Math.max(K, 1); i++) {
+    const s = document.createElement('div');
+    s.className = 'kslot free'; s.id = `kslot-${i}`; s.textContent = '○';
+    row.appendChild(s);
+  }
+}
+
+// ─────────────────────────────────────────
+//  Step Builder
+// ─────────────────────────────────────────
+function buildSteps() {
+  const frames = [];
+  let windowStart = 0, maxLength = 0, maxOnesCount = 0;
+  let bestStart = -1, bestEnd = -1;
+
+  for (let windowEnd = 0; windowEnd < arr.length; windowEnd++) {
+    const added = arr[windowEnd];
+    if (added === 1) maxOnesCount++;
+
+    const winSize    = windowEnd - windowStart + 1;
+    const zerosNeeded= winSize - maxOnesCount;
+    const overBudget = zerosNeeded > K;
+    let didShrink    = false;
+    let oneLost      = false;
+
+    if (overBudget) {
+      if (arr[windowStart] === 1) { maxOnesCount--; oneLost = true; }
+      windowStart++;
+      didShrink = true;
+    }
+
+    const curLen    = windowEnd - windowStart + 1;
+    const isNewBest = curLen > maxLength;
+    if (isNewBest) { maxLength = curLen; bestStart = windowStart; bestEnd = windowEnd; }
+
+    frames.push({
+      windowStart, windowEnd,
+      maxOnesCount,
+      winSize: curLen,
+      zerosInWin: curLen - maxOnesCount,
+      overBudget: zerosNeeded > K,
+      didShrink, oneLost,
+      added,
+      maxLength, bestStart, bestEnd,
+      isNewBest,
+      log: buildLog(windowEnd, added, maxOnesCount, curLen, curLen - maxOnesCount, K, didShrink, oneLost, isNewBest, curLen)
+    });
+  }
+  return frames;
+}
+
+function buildLog(we, added, maxOnes, winSize, zeros, k, shrunk, oneLost, newBest, size) {
+  const parts = [];
+  if (added === 1) {
+    parts.push(`<span class="log-one">+ arr[${we}] = 1</span> → maxOnesCount ↑ to ${maxOnes}.`);
+  } else {
+    parts.push(`<span class="log-zero">+ arr[${we}] = 0</span> — needs replacement.`);
+  }
+  parts.push(`Window size=${winSize}, zeros=${zeros}.`);
+  if (shrunk) {
+    parts.push(`<span class="log-shr">Over budget (${zeros + (oneLost ? 1 : 0)} > K=${k}) — SHRINK ←.</span>`);
+    if (oneLost) parts.push(`<span class="log-dec">A 1 left → maxOnesCount ↓ to ${maxOnes}.</span>`);
+  } else {
+    parts.push(`Within budget ✓ (${zeros} ≤ K=${k}).`);
+  }
+  if (newBest) parts.push(`<span class="log-best">🏆 New max = ${size}!</span>`);
+  return parts.join(' ');
+}
+
+// ─────────────────────────────────────────
+//  Frame Renderer
+// ─────────────────────────────────────────
+function applyFrame(f) {
+  const { windowStart, windowEnd, maxOnesCount, winSize, zerosInWin,
+          didShrink, oneLost, added, maxLength, bestStart, bestEnd, isNewBest } = f;
+
+  // reset
+  arr.forEach((_, i) => {
+    const c = document.getElementById(`cell-${i}`);
+    c.className = 'arr-cell default';
+    c.style.background = c.style.borderColor = c.style.color = c.style.boxShadow = '';
+    document.getElementById(`role-${i}`).textContent = '';
+    const b = document.getElementById(`brk-${i}`);
+    if (b) b.className = 'bracket-line';
+  });
+
+  // best window
+  if (bestStart >= 0) {
+    for (let i = bestStart; i <= bestEnd; i++) {
+      const c = document.getElementById(`cell-${i}`);
+      c.className = arr[i] === 1 ? 'arr-cell best-one' : 'arr-cell best-zero';
+      c.style.background = c.style.borderColor = c.style.color = c.style.boxShadow = '';
+      const b = document.getElementById(`brk-${i}`);
+      if (b) b.className = 'bracket-line v best';
+    }
+  }
+
+  // count zeros in current window to assign slot indices
+  let zeroSlot = 0;
+
+  // current window
+  for (let i = windowStart; i <= windowEnd; i++) {
+    const c = document.getElementById(`cell-${i}`);
+    const b = document.getElementById(`brk-${i}`);
+    c.style.background = c.style.borderColor = c.style.color = c.style.boxShadow = '';
+
+    if (arr[i] === 1) {
+      c.className = 'arr-cell is-one';
+      document.getElementById(`role-${i}`).textContent = 'keep';
+    } else {
+      // is it within budget or over?
+      if (zeroSlot < K) {
+        c.className = 'arr-cell is-zero-used';
+        document.getElementById(`role-${i}`).textContent = '→ 1';
+      } else {
+        c.className = 'arr-cell is-zero-over';
+        document.getElementById(`role-${i}`).textContent = 'over!';
+      }
+      zeroSlot++;
+    }
+    if (b) b.className = `bracket-line v${didShrink ? ' shr' : ''}`;
+  }
+
+  // cell leaving
+  if (didShrink) {
+    const leavIdx = windowStart - 1;
+    const c = document.getElementById(`cell-${leavIdx}`);
+    if (c && !c.className.includes('best')) {
+      c.className = 'arr-cell leaving';
+      c.style.background = c.style.borderColor = c.style.color = c.style.boxShadow = '';
+      document.getElementById(`role-${leavIdx}`).textContent = '← out';
+    }
+  }
+
+  // faded
+  for (let i = 0; i < windowStart - (didShrink ? 1 : 0); i++) {
+    const c = document.getElementById(`cell-${i}`);
+    if (!c.className.includes('best') && !c.className.includes('leaving')) {
+      c.className = 'arr-cell done';
+      c.style.background = c.style.borderColor = c.style.color = c.style.boxShadow = '';
+    }
+    const b = document.getElementById(`brk-${i}`);
+    if (b && !b.className.includes('best')) b.className = 'bracket-line';
+  }
+
+  // phase banner
+  const banner = document.getElementById('phaseBanner');
+  const ptext  = document.getElementById('phaseText');
+  if (didShrink) {
+    banner.className = 'phase-banner ph-shrink';
+    ptext.textContent = `SHRINK ← Over budget (${zerosInWin + (oneLost?1:0)} zeros > K=${K})${oneLost ? ' — a 1 left, maxOnesCount ↓' : ''}`;
+  } else if (added === 1) {
+    banner.className = 'phase-banner ph-one';
+    ptext.textContent = `EXTEND → arr[${windowEnd}] = 1 — maxOnesCount ↑ to ${maxOnesCount}`;
+  } else {
+    banner.className = 'phase-banner ph-zero';
+    ptext.textContent = `EXTEND → arr[${windowEnd}] = 0 — replacement slot used (${zerosInWin} of ${K})`;
+  }
+
+  // big 3 stats
+  document.getElementById('statOnes').textContent  = maxOnesCount;
+  document.getElementById('statZeros').textContent = zerosInWin;
+  document.getElementById('statZeroSub').textContent = zerosInWin <= K ? 'will replace with 1' : `OVER budget by ${zerosInWin - K}!`;
+
+  const budgetCard = document.getElementById('budgetCard');
+  const budgetLabel= document.getElementById('budgetLabel');
+  const budgetSub  = document.getElementById('budgetSub');
+  budgetCard.className = `stat-card budget-card ${zerosInWin > K ? 'over' : 'ok'}`;
+  budgetLabel.textContent = zerosInWin > K ? 'Over budget!' : 'Budget used';
+  document.getElementById('statBudget').textContent = `${zerosInWin > K ? zerosInWin : zerosInWin} / ${K}`;
+  budgetSub.textContent = zerosInWin > K ? 'need to shrink' : 'zeros ≤ K ✓';
+
+  // formula
+  document.getElementById('fWin').textContent   = winSize;
+  document.getElementById('fOnes').textContent  = maxOnesCount;
+  document.getElementById('fZeros').textContent = zerosInWin;
+  const fRes = document.getElementById('fResult');
+  if (zerosInWin > K) {
+    fRes.className   = 'f-result over';
+    fRes.textContent = `${zerosInWin} > K — shrink!`;
+  } else {
+    fRes.className   = 'f-result ok';
+    fRes.textContent = `${zerosInWin} ≤ K — valid ✓`;
+  }
+
+  // K slots
+  document.getElementById('usedLabel').textContent = Math.min(zerosInWin, K + 1);
+  for (let i = 0; i < K; i++) {
+    const slot = document.getElementById(`kslot-${i}`);
+    if (!slot) continue;
+    if (i < zerosInWin && zerosInWin > K) {
+      slot.className = 'kslot over'; slot.textContent = '0';
+    } else if (i < zerosInWin) {
+      slot.className = 'kslot used'; slot.textContent = '0';
+    } else {
+      slot.className = 'kslot free'; slot.textContent = '○';
+    }
+  }
+
+  // maxOnesCount tracker
+  const tracker = document.getElementById('onesTracker');
+  const otNote  = document.getElementById('otNote');
+  document.getElementById('otVal').textContent = maxOnesCount;
+  document.getElementById('otBar').style.width =
+    `${Math.min(100, (maxOnesCount / Math.max(arr.length, 1)) * 100)}%`;
+
+  if (didShrink && oneLost) {
+    tracker.className = 'ones-tracker decrement';
+    document.getElementById('otBar').style.background = 'var(--zero)';
+    otNote.className = 'ot-note decrement';
+    otNote.textContent = '↓ Decremented — a 1 just left the window. (Unlike the char-replacement problem!)';
+  } else if (didShrink) {
+    tracker.className = 'ones-tracker';
+    document.getElementById('otBar').style.background = 'var(--amber)';
+    otNote.className = 'ot-note frozen';
+    otNote.textContent = 'Unchanged — a 0 left the window, so maxOnesCount stays the same.';
+  } else if (added === 1) {
+    tracker.className = 'ones-tracker';
+    document.getElementById('otBar').style.background = 'var(--amber)';
+    otNote.className = 'ot-note';
+    otNote.textContent = `↑ Incremented — a 1 entered the window (arr[${windowEnd}] = 1).`;
+  } else {
+    tracker.className = 'ones-tracker';
+    document.getElementById('otBar').style.background = 'var(--amber)';
+    otNote.className = 'ot-note';
+    otNote.textContent = 'Unchanged — a 0 entered. maxOnesCount only changes when a 1 enters or leaves.';
+  }
+
+  // info grid
+  document.getElementById('iStart').textContent = windowStart;
+  document.getElementById('iEnd').textContent   = windowEnd;
+  document.getElementById('iSize').textContent  = winSize;
+  document.getElementById('iOnes').textContent  = maxOnesCount;
+  document.getElementById('iZeros').textContent = zerosInWin;
+  document.getElementById('iZeros').style.color = zerosInWin > K ? 'var(--zero)' : '#fca5a5';
+  document.getElementById('iMax').textContent   = maxLength;
+  document.getElementById('iStep').textContent  = `${currentStep + 1} / ${steps.length}`;
+
+  // best strip
+  const strip = document.getElementById('bestStrip');
+  strip.className = 'best-strip' + (isNewBest ? ' new' : '');
+  const bestArr = document.getElementById('bestArr');
+  bestArr.innerHTML = '';
+  if (bestStart >= 0) {
+    arr.slice(bestStart, bestEnd + 1).forEach(v => {
+      const bc = document.createElement('div');
+      bc.className = `best-cell ${v === 1 ? 'b1' : 'b0'}`;
+      bc.textContent = v;
+      bestArr.appendChild(bc);
+    });
+  } else {
+    bestArr.textContent = '–';
+  }
+  document.getElementById('bestLen').textContent = maxLength || '0';
+
+  document.getElementById('stepLog').innerHTML = f.log;
+}
+
+// ─────────────────────────────────────────
+//  Playback
+// ─────────────────────────────────────────
+function playPause() {
+  if (playing) { clearInterval(timer); playing = false; setBtnPlay(false); }
+  else {
+    if (currentStep >= steps.length - 1) resetAnim();
+    playing = true; setBtnPlay(true);
+    advance(); timer = setInterval(advance, getDelay());
+  }
+}
+function advance() {
+  if (currentStep < steps.length - 1) { currentStep++; applyFrame(steps[currentStep]); }
+  else {
+    clearInterval(timer); playing = false; setBtnPlay(false);
+    const f = steps[steps.length - 1];
+    document.getElementById('stepLog').innerHTML +=
+      ` <span class="log-done">✓ Answer = ${f.maxLength}</span>`;
+    document.getElementById('phaseBanner').className = 'phase-banner ph-one';
+    document.getElementById('phaseText').textContent =
+      `Done! Longest window = ${f.maxLength} (replace ${Math.min(K, f.maxLength)} zeros)`;
+  }
+}
+function stepFwd() {
+  if (playing) { clearInterval(timer); playing = false; setBtnPlay(false); }
+  if (currentStep < steps.length - 1) { currentStep++; applyFrame(steps[currentStep]); }
+}
+function resetAnim() {
+  clearInterval(timer); playing = false; setBtnPlay(false);
+  currentStep = -1; buildDOM();
+  ['iStart','iEnd','iSize'].forEach(id => document.getElementById(id).textContent = '–');
+  ['iOnes','iZeros','iMax'].forEach(id => document.getElementById(id).textContent = '0');
+  document.getElementById('iStep').textContent  = `0 / ${steps.length}`;
+  document.getElementById('stepLog').textContent = 'Press Play to start the animation.';
+  document.getElementById('bestArr').innerHTML   = '';
+  document.getElementById('bestArr').textContent = '–';
+  document.getElementById('bestLen').textContent = '0';
+  document.getElementById('bestStrip').className = 'best-strip';
+  document.getElementById('phaseBanner').className = 'phase-banner ph-idle';
+  document.getElementById('phaseText').textContent = 'Ready — press Play to begin';
+  document.getElementById('statOnes').textContent  = '0';
+  document.getElementById('statZeros').textContent = '0';
+  document.getElementById('statBudget').textContent= `0 / ${K}`;
+  document.getElementById('otVal').textContent = '0';
+  document.getElementById('otBar').style.width = '0%';
+  document.getElementById('otBar').style.background = 'var(--amber)';
+  document.getElementById('otNote').textContent = 'Counts 1s seen in the current window. Grows when a 1 enters.';
+  document.getElementById('otNote').className = 'ot-note';
+  document.getElementById('onesTracker').className = 'ones-tracker';
+  document.getElementById('fWin').textContent   = '–';
+  document.getElementById('fOnes').textContent  = '–';
+  document.getElementById('fZeros').textContent = '–';
+  document.getElementById('fResult').className  = 'f-result ok';
+  document.getElementById('fResult').textContent = '–';
+  document.getElementById('usedLabel').textContent = '0';
+}
+function setBtnPlay(p) {
+  const btn = document.getElementById('btnPlay');
+  btn.className   = p ? 'btn btn-pause' : 'btn btn-play';
+  btn.textContent = p ? '⏸ Pause' : '▶ Play';
+}
+function getDelay() { return SPEEDS[document.getElementById('speedRange').value] || 750; }
+function onSpeedChange(v) {
+  document.getElementById('speedLabel').textContent = SPEED_LABELS[v];
+  if (playing) { clearInterval(timer); timer = setInterval(advance, getDelay()); }
+}
+
+// ─────────────────────────────────────────
+//  Config
+// ─────────────────────────────────────────
+function applyConfig() {
+  const raw = document.getElementById('arrInput').value;
+  const parsed = raw.split(',').map(s => parseInt(s.trim())).filter(n => n === 0 || n === 1);
+  const k = parseInt(document.getElementById('kInput').value);
+  if (!parsed.length || isNaN(k) || k < 0) return;
+  arr = parsed; K = k; rebuildAll();
+}
+function loadEx(a, k) {
+  arr = a; K = k;
+  document.getElementById('arrInput').value = a.join(', ');
+  document.getElementById('kInput').value   = k;
+  rebuildAll();
+}
+function rebuildAll() { steps = buildSteps(); resetAnim(); }
+
+rebuildAll();
+</script>
+</body>
+</html>
