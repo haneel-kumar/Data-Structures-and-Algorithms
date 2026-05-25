@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fruits into Baskets – Sliding Window</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0a0d16;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 2rem 1rem 5rem;
+    }
+
+    /* ── Header ── */
+    .header { text-align: center; margin-bottom: 2rem; }
+    .header h1 { font-size: 1.55rem; font-weight: 800; color: #f8fafc; letter-spacing: -0.02em; }
+    .header p  { color: #475569; font-size: 0.82rem; margin-top: 0.3rem; }
+    .header a  { color: #34d399; text-decoration: none; font-size: 0.76rem; }
+    .header a:hover { text-decoration: underline; }
+    .badge { display:inline-block; padding:.18rem .65rem; border-radius:999px; font-size:.68rem;
+             font-weight:700; margin-left:.45rem; vertical-align:middle; }
+    .badge-green { background:#052e16; color:#86efac; border:1px solid #166534; }
+
+    /* ── Card ── */
+    .card {
+      background: #111420; border: 1px solid #1a1f35;
+      border-radius: 16px; padding: 1.4rem 1.5rem;
+      margin-bottom: 1.3rem; max-width: 940px;
+      margin-left: auto; margin-right: auto;
+    }
+    .card-title { font-size:.68rem; font-weight:700; text-transform:uppercase;
+                  letter-spacing:.1em; color:#252844; margin-bottom:1rem; }
+
+    /* ── Controls ── */
+    .controls { display:flex; flex-wrap:wrap; align-items:center; gap:.6rem; }
+    label { font-size:.8rem; color:#94a3b8; }
+    input[type=text] {
+      background:#0a0d16; border:1px solid #1a1f35;
+      border-radius:8px; color:#f1f5f9;
+      padding:.38rem .65rem; font-size:.82rem; width:260px;
+    }
+    input:focus { outline:2px solid #34d399; outline-offset:2px; }
+
+    .btn { padding:.4rem 1rem; border-radius:8px; border:none;
+           font-size:.8rem; font-weight:600; cursor:pointer;
+           transition:opacity .15s, transform .1s; }
+    .btn:hover  { opacity:.85; transform:translateY(-1px); }
+    .btn:active { transform:none; }
+    .btn-primary { background:#34d399; color:#052e16; }
+    .btn-play    { background:#10b981; color:#fff; min-width:86px; }
+    .btn-pause   { background:#f59e0b; color:#000; min-width:86px; }
+    .btn-reset   { background:#141827; border:1px solid #1e2640; color:#64748b; }
+    .btn-step    { background:#141827; border:1px solid #1e2640; color:#64748b; }
+    .btn-ex      { background:#141827; border:1px solid #1e2640; color:#64748b; font-size:.72rem; }
+
+    .speed-row { display:flex; align-items:center; gap:.5rem; margin-top:.6rem; }
+    input[type=range] { accent-color:#34d399; width:110px; }
+
+    /* ── Insight strip ── */
+    .insight-strip {
+      display:flex; align-items:center; gap:.6rem;
+      background:#052e16; border:1px solid #166534;
+      border-radius:10px; padding:.55rem .9rem; margin-top:.75rem;
+      font-size:.77rem; color:#86efac;
+    }
+
+    /* ── Phase banner ── */
+    .phase-banner {
+      display:flex; align-items:center; gap:.6rem;
+      padding:.45rem .85rem; border-radius:10px;
+      font-size:.77rem; font-weight:700;
+      margin-bottom:1.1rem; border:1px solid transparent;
+      transition:background .3s, border-color .3s;
+    }
+    .phase-expand { background:#031a0e; border-color:#10b981; color:#6ee7b7; }
+    .phase-shrink { background:#1a0a0a; border-color:#ef4444; color:#fca5a5; }
+    .phase-idle   { background:#0f1117; border-color:#1e293b; color:#334155; }
+    .phase-dot    { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+    .phase-expand .phase-dot { background:#10b981; box-shadow:0 0 6px #10b981; }
+    .phase-shrink .phase-dot { background:#ef4444; box-shadow:0 0 6px #ef4444; }
+    .phase-idle   .phase-dot { background:#374151; }
+
+    /* ── Orchard (tree row) ── */
+    .orchard-wrap { overflow-x:auto; padding-bottom:.5rem; }
+    .orchard-scene { display:flex; flex-direction:column; gap:4px; min-width:max-content; }
+    .tree-row   { display:flex; align-items:flex-end; gap:5px; }
+    .tree-col   { display:flex; flex-direction:column; align-items:center; gap:3px; }
+    .tree-idx   { font-size:.6rem; color:#252844; font-weight:600; }
+
+    .tree {
+      width:56px; height:60px; border-radius:12px;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:2px; border:2px solid transparent;
+      transition:background .22s, border-color .22s, transform .22s, box-shadow .22s;
+      position:relative;
+    }
+    .tree-emoji { font-size:1.5rem; line-height:1; position:relative; z-index:1; }
+    .tree-type  { font-size:.58rem; font-weight:700; position:relative; z-index:1; }
+
+    .tree.default  { background:#111420; border-color:#1a1f35; }
+    .tree.default  .tree-emoji { filter:grayscale(1) opacity(.3); }
+    .tree.default  .tree-type  { color:#252844; }
+    .tree.in-basket{ transform:translateY(-6px); box-shadow:0 7px 22px rgba(52,211,153,.2); }
+    .tree.in-basket .tree-type { color:#6ee7b7; }
+    .tree.leaving  { background:#2d0a0a; border-color:#ef4444; transform:translateY(3px); }
+    .tree.leaving  .tree-type  { color:#fca5a5; }
+    .tree.done     { background:#0a0d16; border-color:#0f1117; }
+    .tree.done     .tree-emoji { filter:grayscale(1) opacity(.15); }
+    .tree.done     .tree-type  { color:#1a1f35; }
+    .tree.best     { transform:translateY(-6px); box-shadow:0 7px 22px rgba(59,130,246,.22); }
+    .tree.best     .tree-type  { color:#93c5fd; }
+
+    /* bracket */
+    .bracket-row { display:flex; gap:5px; min-width:max-content; }
+    .bracket-cell { width:56px; height:7px; display:flex; align-items:center; }
+    .bracket-line { height:3px; width:100%; border-radius:2px; opacity:0; transition:opacity .2s, background .2s; }
+    .bracket-line.visible      { opacity:1; background:#10b981; }
+    .bracket-line.visible.red  { background:#ef4444; }
+    .bracket-line.visible.blue { background:#3b82f6; }
+
+    /* ── Basket panel ── */
+    .baskets-row {
+      display:grid; grid-template-columns:1fr 1fr; gap:.9rem; margin-top:1rem;
+    }
+    .basket-card {
+      background:#0a0d16; border:2px solid #1a1f35;
+      border-radius:14px; padding:.9rem 1rem;
+      transition:border-color .25s, box-shadow .25s;
+      display:flex; flex-direction:column; gap:.5rem;
+    }
+    .basket-card.active { border-color:#34d399; box-shadow:0 0 16px rgba(52,211,153,.15); }
+    .basket-card.empty  { border-color:#1a1f35; opacity:.45; }
+
+    .basket-header { display:flex; align-items:center; gap:.5rem; }
+    .basket-icon   { font-size:1.5rem; }
+    .basket-title  { font-size:.78rem; font-weight:700; color:#64748b; flex:1; }
+    .basket-fruit  { font-size:1.1rem; font-weight:800; }
+    .basket-count-row { display:flex; align-items:center; gap:.6rem; }
+    .basket-bar-wrap  { flex:1; background:#1a1f35; border-radius:999px; height:8px; overflow:hidden; }
+    .basket-bar       { height:100%; border-radius:999px; transition:width .3s ease; }
+    .basket-count     { font-size:1.2rem; font-weight:800; min-width:28px; text-align:right;
+                        font-variant-numeric:tabular-nums; }
+    .basket-fruits-display {
+      display:flex; flex-wrap:wrap; gap:3px; min-height:20px;
+    }
+    .basket-fruit-dot {
+      width:14px; height:14px; border-radius:50%; font-size:.65rem;
+      display:flex; align-items:center; justify-content:center;
+    }
+
+    /* ── Info grid ── */
+    .info-grid {
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr));
+      gap:.6rem; margin-top:1rem;
+    }
+    .info-box { background:#0a0d16; border:1px solid #141827;
+                border-radius:10px; padding:.65rem .85rem; text-align:center; }
+    .info-label { font-size:.6rem; text-transform:uppercase; letter-spacing:.08em; color:#1e2640; margin-bottom:.22rem; }
+    .info-val   { font-size:1.25rem; font-weight:700; color:#f1f5f9; font-variant-numeric:tabular-nums; }
+    .info-val.green  { color:#6ee7b7; }
+    .info-val.red    { color:#fca5a5; }
+    .info-val.blue   { color:#93c5fd; }
+    .info-val.yellow { color:#fde68a; }
+
+    /* ── Best strip ── */
+    .best-strip {
+      display:flex; align-items:center; gap:.75rem;
+      background:#0d1f3c; border:1px solid #1e3a5f;
+      border-radius:11px; padding:.8rem 1rem; margin-top:1rem;
+      transition:background .3s, border-color .3s;
+    }
+    .best-strip.new { background:#052e16; border-color:#166534; }
+    .best-label  { font-size:.7rem; color:#1e3a5f; white-space:nowrap; }
+    .best-strip.new .best-label { color:#166534; }
+    .best-fruits { flex:1; font-size:1.2rem; letter-spacing:.1em; }
+    .best-len    { font-size:1.6rem; font-weight:800; color:#3b82f6; }
+
+    /* ── Step log ── */
+    .step-log {
+      background:#07090f; border:1px solid #111420;
+      border-radius:10px; padding:.8rem 1rem;
+      font-size:.79rem; line-height:1.65; color:#475569;
+      min-height:64px; max-height:120px; overflow-y:auto; margin-top:1rem;
+    }
+    .log-expand { color:#6ee7b7; font-weight:600; }
+    .log-shrink { color:#fca5a5; font-weight:600; }
+    .log-best   { color:#93c5fd; font-weight:700; }
+    .log-map    { color:#fde68a; font-weight:600; font-family:monospace; }
+    .log-done   { color:#34d399; font-weight:700; }
+    .log-hi     { color:#a5b4fc; }
+
+    /* ── Playback ── */
+    .playback-row { display:flex; flex-wrap:wrap; gap:.55rem; margin-top:1.1rem; align-items:center; }
+
+    /* ── Legend ── */
+    .legend { display:flex; flex-wrap:wrap; gap:.65rem; margin-top:.9rem; }
+    .legend-item { display:flex; align-items:center; gap:.35rem; font-size:.71rem; color:#334155; }
+    .legend-dot  { width:10px; height:10px; border-radius:3px; flex-shrink:0; }
+
+    /* ── Connection panel ── */
+    .connection-grid { display:grid; grid-template-columns:1fr 1fr; gap:.85rem; }
+    @media(max-width:560px) { .connection-grid { grid-template-columns:1fr; } }
+
+    .conn-card { border-radius:12px; padding:1rem; }
+    .conn-card.prev { background:#0c0e1a; border:1px solid #1e2236; }
+    .conn-card.curr { background:#031a0e; border:1px solid #166534; }
+    .conn-card h3 { font-size:.84rem; margin-bottom:.4rem; }
+    .conn-card.prev h3 { color:#475569; }
+    .conn-card.curr h3 { color:#6ee7b7; }
+    .conn-card p { font-size:.76rem; line-height:1.55; color:#334155; }
+
+    .complexity-row { display:flex; gap:.7rem; flex-wrap:wrap; margin-top:.65rem; }
+    .complexity-badge {
+      display:inline-flex; align-items:center; gap:.4rem;
+      padding:.28rem .75rem; border-radius:999px; font-size:.73rem; font-weight:700;
+    }
+    .badge-time  { background:#052e16; border:1px solid #166534; color:#86efac; }
+    .badge-space { background:#0f172a; border:1px solid #1e293b; color:#475569; }
+    .badge-dot   { width:7px; height:7px; border-radius:50%; }
+    .badge-time  .badge-dot { background:#22c55e; }
+    .badge-space .badge-dot { background:#334155; }
+
+    .insight-block {
+      background:#0a0d16; border-left:3px solid #34d399;
+      border-radius:0 10px 10px 0; padding:.8rem 1rem;
+      margin-top:.75rem; font-size:.79rem; color:#334155; line-height:1.6;
+    }
+
+    ::-webkit-scrollbar { width:5px; height:5px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:#1a1f35; border-radius:3px; }
+
+    @media(max-width:500px) {
+      .tree { width:44px; height:50px; }
+      .bracket-cell { width:44px; }
+      .tree-emoji { font-size:1.2rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1>🧺 Fruits into Baskets
+    <span class="badge badge-green">K = 2</span>
+  </h1>
+  <p>Longest subarray with at most 2 distinct types · Sliding Window + Map</p>
+  <a href="https://leetcode.com/problems/fruit-into-baskets/" target="_blank">↗ LeetCode #904</a>
+</div>
+
+<!-- Config -->
+<div class="card">
+  <div class="card-title">Configuration</div>
+  <div class="controls">
+    <label>Fruit array</label>
+    <input type="text" id="arrInput" value="3, 3, 3, 1, 2, 1, 1, 2, 3, 3, 4"
+           placeholder="e.g. A, B, C, A, C  or  1, 2, 1"/>
+    <button class="btn btn-primary" onclick="applyConfig()">Apply</button>
+  </div>
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.55rem;">
+    <button class="btn btn-ex" onclick="loadEx(0)">[3,3,3,1,2,1,1,2,3,3,4] → 5</button>
+    <button class="btn btn-ex" onclick="loadEx(1)">[1,2,1] → 3</button>
+    <button class="btn btn-ex" onclick="loadEx(2)">[0,1,2,2] → 3</button>
+    <button class="btn btn-ex" onclick="loadEx(3)">[1,2,3,2,2] → 4</button>
+    <button class="btn btn-ex" onclick="loadEx(4)">[A,B,C,A,C] → 3</button>
+    <button class="btn btn-ex" onclick="loadEx(5)">[A,B,C,B,B,C] → 5</button>
+  </div>
+  <div class="speed-row">
+    <label>Speed</label>
+    <input type="range" id="speedRange" min="1" max="5" value="3" oninput="onSpeedChange(this.value)"/>
+    <span id="speedLabel" style="font-size:.73rem;color:#252844;">Normal</span>
+  </div>
+  <div class="insight-strip">
+    🍎 Each "basket" holds exactly one fruit type. Two baskets = K=2 distinct values in the window — identical to Longest Substring with K Distinct Characters!
+  </div>
+</div>
+
+<!-- Visualizer -->
+<div class="card">
+  <div class="phase-banner phase-idle" id="phaseBanner">
+    <div class="phase-dot"></div>
+    <span id="phaseText">Ready — press Play to begin</span>
+  </div>
+
+  <!-- Orchard -->
+  <div class="orchard-wrap">
+    <div class="orchard-scene">
+      <div class="tree-row"    id="treeRow"></div>
+      <div class="bracket-row" id="bracketRow"></div>
+    </div>
+  </div>
+
+  <!-- Baskets -->
+  <div class="baskets-row">
+    <div class="basket-card empty" id="basket0">
+      <div class="basket-header">
+        <div class="basket-icon">🧺</div>
+        <div class="basket-title">Basket 1</div>
+        <div class="basket-fruit" id="bFruit0">–</div>
+      </div>
+      <div class="basket-count-row">
+        <div class="basket-bar-wrap">
+          <div class="basket-bar" id="bBar0" style="width:0%;background:#34d399;"></div>
+        </div>
+        <div class="basket-count" id="bCount0" style="color:#34d399;">0</div>
+      </div>
+      <div class="basket-fruits-display" id="bDots0"></div>
+    </div>
+    <div class="basket-card empty" id="basket1">
+      <div class="basket-header">
+        <div class="basket-icon">🧺</div>
+        <div class="basket-title">Basket 2</div>
+        <div class="basket-fruit" id="bFruit1">–</div>
+      </div>
+      <div class="basket-count-row">
+        <div class="basket-bar-wrap">
+          <div class="basket-bar" id="bBar1" style="width:0%;background:#f472b6;"></div>
+        </div>
+        <div class="basket-count" id="bCount1" style="color:#f472b6;">0</div>
+      </div>
+      <div class="basket-fruits-display" id="bDots1"></div>
+    </div>
+  </div>
+
+  <!-- Info grid -->
+  <div class="info-grid">
+    <div class="info-box">
+      <div class="info-label">Window Start</div>
+      <div class="info-val red" id="iStart">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Window End</div>
+      <div class="info-val green" id="iEnd">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Window Size</div>
+      <div class="info-val yellow" id="iSize">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Types in Map</div>
+      <div class="info-val" id="iTypes">0</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Max Fruits</div>
+      <div class="info-val blue" id="iMax">0</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Step</div>
+      <div class="info-val" id="iStep">0 / 0</div>
+    </div>
+  </div>
+
+  <!-- Best strip -->
+  <div class="best-strip" id="bestStrip">
+    <div class="best-label">Best window (max fruits)</div>
+    <div class="best-fruits" id="bestFruits">–</div>
+    <div class="best-len" id="bestLen">0</div>
+  </div>
+
+  <!-- Log -->
+  <div class="step-log" id="stepLog">Press <strong>Play</strong> to start the animation.</div>
+
+  <!-- Playback -->
+  <div class="playback-row">
+    <button class="btn btn-play" id="btnPlay" onclick="playPause()">▶ Play</button>
+    <button class="btn btn-reset" onclick="resetAnim()">↺ Reset</button>
+    <button class="btn btn-step"  onclick="stepFwd()">Step →</button>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div> In basket (expanding)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div> Being removed (shrinking)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div> Best window found</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#0f1117"></div> Processed / discarded</div>
+  </div>
+</div>
+
+<!-- Connection + Complexity -->
+<div class="card">
+  <div class="card-title">Connection to Previous Problem</div>
+  <div class="connection-grid">
+    <div class="conn-card prev">
+      <h3>Longest Substring — K Distinct</h3>
+      <p>Given a <strong>string</strong>, find the longest substring with at most <strong>K</strong> distinct characters. Uses a charFrequency HashMap.</p>
+    </div>
+    <div class="conn-card curr">
+      <h3>Fruits into Baskets (K = 2)</h3>
+      <p>Given a <strong>fruit array</strong>, find the longest subarray with at most <strong>2</strong> distinct fruit types. Identical algorithm — just K is fixed to 2!</p>
+    </div>
+  </div>
+  <div class="insight-block">
+    <strong style="color:#34d399;">Same algorithm, new story.</strong>
+    "Two baskets, each holding one fruit type" is exactly K=2 distinct characters.
+    The only real difference between these two problems is the value of K and the theme.
+    If you know one, you know both.
+  </div>
+  <div class="complexity-row" style="margin-top:.8rem;">
+    <div class="complexity-badge badge-time"><div class="badge-dot"></div> O(N) time</div>
+    <div class="complexity-badge badge-space"><div class="badge-dot"></div> O(1) space — at most 3 entries in map</div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────
+//  Fruit → emoji mapping
+// ─────────────────────────────────
+const FRUIT_EMOJIS = {
+  '0':'🍇','1':'🍎','2':'🍊','3':'🍋','4':'🍓','5':'🫐','6':'🍑','7':'🍍','8':'🥝','9':'🍒',
+  'A':'🍎','B':'🍊','C':'🍋','D':'🍇','E':'🍓','F':'🫐','G':'🍑','H':'🍍','I':'🥝','J':'🍒',
+};
+
+const BASKET_COLORS = ['#34d399','#f472b6'];
+
+function emojiFor(v) {
+  return FRUIT_EMOJIS[String(v)] || '🍈';
+}
+
+// ─────────────────────────────────
+//  State
+// ─────────────────────────────────
+let fruits = [3,3,3,1,2,1,1,2,3,3,4];
+let steps  = [];
+let currentStep = -1;
+let playing = false;
+let timer   = null;
+
+const SPEEDS = {1:1700,2:1100,3:680,4:330,5:140};
+const SPEED_LABELS = {1:'Slow',2:'Relaxed',3:'Normal',4:'Fast',5:'Turbo'};
+
+const EXAMPLES = [
+  [3,3,3,1,2,1,1,2,3,3,4],
+  [1,2,1],
+  [0,1,2,2],
+  [1,2,3,2,2],
+  ['A','B','C','A','C'],
+  ['A','B','C','B','B','C'],
+];
+
+// ─────────────────────────────────
+//  DOM Build
+// ─────────────────────────────────
+function buildDOM() {
+  const row  = document.getElementById('treeRow');
+  const brRow= document.getElementById('bracketRow');
+  row.innerHTML = ''; brRow.innerHTML = '';
+
+  fruits.forEach((v, i) => {
+    const col = document.createElement('div');
+    col.className = 'char-col tree-col';
+
+    const idx = document.createElement('div');
+    idx.className = 'tree-idx';
+    idx.textContent = i;
+
+    const tree = document.createElement('div');
+    tree.className = 'tree default';
+    tree.id = `tree-${i}`;
+
+    const em = document.createElement('div');
+    em.className = 'tree-emoji';
+    em.textContent = emojiFor(v);
+
+    const type = document.createElement('div');
+    type.className = 'tree-type';
+    type.textContent = v;
+
+    tree.append(em, type);
+    col.append(idx, tree);
+    row.appendChild(col);
+
+    const bc = document.createElement('div');
+    bc.className = 'bracket-cell';
+    const bl = document.createElement('div');
+    bl.className = 'bracket-line';
+    bl.id = `bracket-${i}`;
+    bc.appendChild(bl);
+    brRow.appendChild(bc);
+  });
+}
+
+// ─────────────────────────────────
+//  Step Builder
+// ─────────────────────────────────
+function buildSteps() {
+  const frames = [];
+  let windowStart = 0, windowMax = 0;
+  let bestStart = -1, bestEnd = -1;
+  const map = {};
+
+  for (let windowEnd = 0; windowEnd < fruits.length; windowEnd++) {
+    const endFruit = String(fruits[windowEnd]);
+    map[endFruit] = (map[endFruit] || 0) + 1;
+
+    const snap1 = snapMap(map);
+    frames.push({
+      windowStart, windowEnd, map: snap1,
+      types: Object.keys(snap1).length,
+      windowMax, bestStart, bestEnd,
+      phase: 'expand', leavingIdx: -1, leavingFruit: '',
+      isNewBest: false,
+      log: buildExpandLog(windowEnd, endFruit, snap1)
+    });
+
+    while (Object.keys(map).length > 2) {
+      const startFruit = String(fruits[windowStart]);
+      map[startFruit]--;
+      const removed = map[startFruit] === 0;
+      if (removed) delete map[startFruit];
+
+      const snap2 = snapMap(map);
+      frames.push({
+        windowStart, windowEnd, map: snap2,
+        types: Object.keys(snap2).length,
+        windowMax, bestStart, bestEnd,
+        phase: 'shrink', leavingIdx: windowStart, leavingFruit: startFruit,
+        isNewBest: false,
+        log: buildShrinkLog(windowStart, startFruit, snap2, removed)
+      });
+
+      windowStart++;
+    }
+
+    const curLen    = windowEnd - windowStart + 1;
+    const isNewBest = curLen > windowMax;
+    if (isNewBest) { windowMax = curLen; bestStart = windowStart; bestEnd = windowEnd; }
+
+    const last = frames[frames.length - 1];
+    last.windowMax = windowMax; last.bestStart = bestStart; last.bestEnd = bestEnd;
+    last.isNewBest = isNewBest;
+    if (isNewBest) {
+      last.log += ` <span class="log-best">🏆 New max = ${windowMax}!</span>`;
+    }
+  }
+  return frames;
+}
+
+function snapMap(m) {
+  const out = {}; for (const [k,v] of Object.entries(m)) out[k] = v; return out;
+}
+
+function buildExpandLog(we, fruit, map) {
+  const types = Object.keys(map).length;
+  const mapStr = Object.entries(map).map(([k,v]) => `${emojiFor(k)}×${v}`).join(' ');
+  return `<span class="log-expand">PICK →</span> Took <span class="log-map">${emojiFor(fruit)} (${fruit})</span> at index ${we}. Baskets: <span class="log-map">${mapStr}</span>. Types = <span class="log-hi">${types}</span>${types > 2 ? '. <span class="log-shrink">3rd type! Drop from start.</span>' : '. Window valid ✓'}`;
+}
+
+function buildShrinkLog(ws, fruit, map, removed) {
+  const mapStr = Object.keys(map).length
+    ? Object.entries(map).map(([k,v]) => `${emojiFor(k)}×${v}`).join(' ')
+    : 'empty';
+  return `<span class="log-shrink">DROP ←</span> Removed <span class="log-map">${emojiFor(fruit)} (${fruit})</span> from index ${ws}${removed ? ' — basket emptied 🗑' : ''}. Baskets: <span class="log-map">${mapStr}</span>.`;
+}
+
+// ─────────────────────────────────
+//  Frame Renderer
+// ─────────────────────────────────
+function applyFrame(f) {
+  // reset trees
+  fruits.forEach((_, i) => {
+    document.getElementById(`tree-${i}`).className = 'tree default';
+    const b = document.getElementById(`bracket-${i}`);
+    if (b) b.className = 'bracket-line';
+  });
+
+  const { windowStart, windowEnd, map, types, windowMax,
+          bestStart, bestEnd, phase, leavingIdx, isNewBest } = f;
+
+  // best window (blue)
+  if (bestStart >= 0) {
+    for (let i = bestStart; i <= bestEnd; i++) {
+      document.getElementById(`tree-${i}`).className = 'tree best';
+      const b = document.getElementById(`bracket-${i}`);
+      if (b) b.className = 'bracket-line visible blue';
+    }
+  }
+
+  // current window
+  for (let i = windowStart; i <= windowEnd; i++) {
+    const t = document.getElementById(`tree-${i}`);
+    const b = document.getElementById(`bracket-${i}`);
+    if (phase === 'shrink' && i === leavingIdx) {
+      t.className = 'tree leaving';
+    } else {
+      // color by fruit type
+      const fruitStr = String(fruits[i]);
+      const keys = Object.keys(map);
+      const kidx = keys.indexOf(fruitStr);
+      const col  = kidx >= 0 ? BASKET_COLORS[kidx] : '#64748b';
+      t.className = 'tree in-basket';
+      t.style.background = col + '22';
+      t.style.borderColor= col;
+    }
+    if (b) b.className = `bracket-line visible${phase === 'shrink' ? ' red' : ''}`;
+  }
+
+  // faded past
+  for (let i = 0; i < windowStart; i++) {
+    const t = document.getElementById(`tree-${i}`);
+    if (!t.className.includes('best')) { t.className = 'tree done'; t.style.background=''; t.style.borderColor=''; }
+    const b = document.getElementById(`bracket-${i}`);
+    if (b && !b.className.includes('blue')) b.className = 'bracket-line';
+  }
+
+  // phase banner
+  const banner = document.getElementById('phaseBanner');
+  const ptext  = document.getElementById('phaseText');
+  if (phase === 'expand') {
+    banner.className = 'phase-banner phase-expand';
+    ptext.textContent = `PICK → Picked ${emojiFor(String(fruits[windowEnd]))} (${fruits[windowEnd]}) at tree ${windowEnd}`;
+  } else {
+    banner.className = 'phase-banner phase-shrink';
+    ptext.textContent = `DROP ← Removing ${emojiFor(f.leavingFruit)} (${f.leavingFruit}) from tree ${leavingIdx}`;
+  }
+
+  // baskets
+  renderBaskets(map, windowEnd - windowStart + 1);
+
+  // info
+  document.getElementById('iStart').textContent = windowStart;
+  document.getElementById('iEnd').textContent   = windowEnd;
+  document.getElementById('iSize').textContent  = windowEnd - windowStart + 1;
+  document.getElementById('iTypes').textContent = types;
+  document.getElementById('iTypes').style.color = types > 2 ? '#fca5a5' : '#6ee7b7';
+  document.getElementById('iMax').textContent   = windowMax;
+  document.getElementById('iStep').textContent  = `${currentStep + 1} / ${steps.length}`;
+
+  // best strip
+  const strip = document.getElementById('bestStrip');
+  strip.className = 'best-strip' + (isNewBest ? ' new' : '');
+  document.getElementById('bestFruits').textContent =
+    bestStart >= 0 ? fruits.slice(bestStart, bestEnd + 1).map(v => emojiFor(String(v))).join('') : '–';
+  document.getElementById('bestLen').textContent = windowMax || '0';
+
+  document.getElementById('stepLog').innerHTML = f.log;
+}
+
+function renderBaskets(map, totalInWindow) {
+  const entries = Object.entries(map);
+
+  for (let slot = 0; slot < 2; slot++) {
+    const card   = document.getElementById(`basket${slot}`);
+    const fruitEl= document.getElementById(`bFruit${slot}`);
+    const barEl  = document.getElementById(`bBar${slot}`);
+    const cntEl  = document.getElementById(`bCount${slot}`);
+    const dotsEl = document.getElementById(`bDots${slot}`);
+    const col    = BASKET_COLORS[slot];
+
+    if (slot < entries.length) {
+      const [fruit, count] = entries[slot];
+      card.className = 'basket-card active';
+      card.style.borderColor = col;
+      card.style.boxShadow   = `0 0 14px ${col}28`;
+      fruitEl.textContent = `${emojiFor(fruit)} ${fruit}`;
+      fruitEl.style.color = col;
+      cntEl.textContent   = count;
+      cntEl.style.color   = col;
+
+      const maxInMap = Math.max(...Object.values(map), 1);
+      barEl.style.width      = `${(count / maxInMap) * 100}%`;
+      barEl.style.background = col;
+
+      // dots
+      dotsEl.innerHTML = '';
+      for (let d = 0; d < count; d++) {
+        const dot = document.createElement('div');
+        dot.className = 'basket-fruit-dot';
+        dot.style.background = col + '44';
+        dot.style.border = `1px solid ${col}`;
+        dot.textContent = emojiFor(fruit);
+        dotsEl.appendChild(dot);
+      }
+    } else {
+      card.className = 'basket-card empty';
+      card.style.borderColor = '';
+      card.style.boxShadow   = '';
+      fruitEl.textContent = '–';
+      fruitEl.style.color = '#334155';
+      cntEl.textContent   = '0';
+      cntEl.style.color   = col;
+      barEl.style.width   = '0%';
+      dotsEl.innerHTML    = '';
+    }
+  }
+}
+
+// ─────────────────────────────────
+//  Playback
+// ─────────────────────────────────
+function playPause() {
+  if (playing) { clearInterval(timer); playing = false; setBtnPlay(false); }
+  else {
+    if (currentStep >= steps.length - 1) resetAnim();
+    playing = true; setBtnPlay(true);
+    advance(); timer = setInterval(advance, getDelay());
+  }
+}
+
+function advance() {
+  if (currentStep < steps.length - 1) {
+    currentStep++; applyFrame(steps[currentStep]);
+  } else {
+    clearInterval(timer); playing = false; setBtnPlay(false);
+    const f = steps[steps.length - 1];
+    document.getElementById('stepLog').innerHTML +=
+      ` <span class="log-done">✓ Max fruits = ${f.windowMax}</span>`;
+    document.getElementById('phaseBanner').className = 'phase-banner phase-expand';
+    document.getElementById('phaseText').textContent =
+      `Done! Max fruits you can collect = ${f.windowMax} 🎉`;
+  }
+}
+
+function stepFwd() {
+  if (playing) { clearInterval(timer); playing = false; setBtnPlay(false); }
+  if (currentStep < steps.length - 1) { currentStep++; applyFrame(steps[currentStep]); }
+}
+
+function resetAnim() {
+  clearInterval(timer); playing = false; setBtnPlay(false);
+  currentStep = -1;
+  buildDOM();
+  ['iStart','iEnd','iSize'].forEach(id => document.getElementById(id).textContent = '–');
+  document.getElementById('iTypes').textContent = '0';
+  document.getElementById('iTypes').style.color = '#6ee7b7';
+  document.getElementById('iMax').textContent   = '0';
+  document.getElementById('iStep').textContent  = `0 / ${steps.length}`;
+  document.getElementById('stepLog').textContent = 'Press Play to start the animation.';
+  document.getElementById('bestFruits').textContent = '–';
+  document.getElementById('bestLen').textContent    = '0';
+  document.getElementById('bestStrip').className    = 'best-strip';
+  document.getElementById('phaseBanner').className  = 'phase-banner phase-idle';
+  document.getElementById('phaseText').textContent  = 'Ready — press Play to begin';
+  for (let s = 0; s < 2; s++) {
+    document.getElementById(`basket${s}`).className = 'basket-card empty';
+    document.getElementById(`basket${s}`).style.borderColor = '';
+    document.getElementById(`basket${s}`).style.boxShadow   = '';
+    document.getElementById(`bFruit${s}`).textContent = '–';
+    document.getElementById(`bFruit${s}`).style.color = '#334155';
+    document.getElementById(`bCount${s}`).textContent = '0';
+    document.getElementById(`bBar${s}`).style.width   = '0%';
+    document.getElementById(`bDots${s}`).innerHTML    = '';
+  }
+}
+
+function setBtnPlay(p) {
+  const btn = document.getElementById('btnPlay');
+  btn.className   = p ? 'btn btn-pause' : 'btn btn-play';
+  btn.textContent = p ? '⏸ Pause' : '▶ Play';
+}
+function getDelay() { return SPEEDS[document.getElementById('speedRange').value] || 680; }
+function onSpeedChange(v) {
+  document.getElementById('speedLabel').textContent = SPEED_LABELS[v];
+  if (playing) { clearInterval(timer); timer = setInterval(advance, getDelay()); }
+}
+
+// ─────────────────────────────────
+//  Config
+// ─────────────────────────────────
+function applyConfig() {
+  const raw = document.getElementById('arrInput').value;
+  const parsed = raw.split(',').map(s => {
+    const t = s.trim();
+    const n = Number(t);
+    return isNaN(n) ? t : n;
+  }).filter(v => v !== '' && v !== undefined);
+  if (!parsed.length) return;
+  fruits = parsed;
+  rebuildAll();
+}
+
+function loadEx(idx) {
+  fruits = EXAMPLES[idx];
+  document.getElementById('arrInput').value = fruits.join(', ');
+  rebuildAll();
+}
+
+function rebuildAll() {
+  steps = buildSteps();
+  resetAnim();
+}
+
+// ─────────────────────────────────
+//  Init
+// ─────────────────────────────────
+rebuildAll();
+</script>
+</body>
+</html>
