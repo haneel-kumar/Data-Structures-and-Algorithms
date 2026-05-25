@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Maximum Sum Subarray of Size K – Sliding Window</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 2rem 1rem 4rem;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .header h1 {
+      font-size: 1.55rem;
+      font-weight: 800;
+      color: #f8fafc;
+      letter-spacing: -0.02em;
+    }
+    .header p {
+      color: #64748b;
+      font-size: 0.85rem;
+      margin-top: 0.3rem;
+    }
+    .header a {
+      color: #6366f1;
+      text-decoration: none;
+      font-size: 0.78rem;
+    }
+    .header a:hover { text-decoration: underline; }
+
+    /* ── Card ── */
+    .card {
+      background: #1a1d2e;
+      border: 1px solid #252840;
+      border-radius: 16px;
+      padding: 1.5rem;
+      margin-bottom: 1.4rem;
+      max-width: 860px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .card-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #475569;
+      margin-bottom: 1rem;
+    }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.4rem;
+      flex-wrap: wrap;
+    }
+    .tab {
+      padding: 0.4rem 1.1rem;
+      border-radius: 999px;
+      border: 1px solid #2d3252;
+      background: transparent;
+      color: #64748b;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .tab.active { background: #6366f1; border-color: #6366f1; color: #fff; }
+    .tab:hover:not(.active) { border-color: #6366f1; color: #a5b4fc; }
+
+    /* ── Controls ── */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.65rem;
+    }
+    label { font-size: 0.82rem; color: #94a3b8; }
+    input[type=number], input[type=text] {
+      background: #0f1117;
+      border: 1px solid #2d3252;
+      border-radius: 8px;
+      color: #f1f5f9;
+      padding: 0.4rem 0.7rem;
+      font-size: 0.82rem;
+    }
+    input[type=number] { width: 72px; }
+    input[type=text]   { width: 240px; }
+    input:focus { outline: 2px solid #6366f1; outline-offset: 2px; }
+
+    .btn {
+      padding: 0.42rem 1.05rem;
+      border-radius: 8px;
+      border: none;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+    .btn:active { transform: none; }
+    .btn-primary   { background: #6366f1; color: #fff; }
+    .btn-play      { background: #10b981; color: #fff; min-width: 88px; }
+    .btn-pause     { background: #f59e0b; color: #000; min-width: 88px; }
+    .btn-reset     { background: #1e293b; border: 1px solid #334155; color: #94a3b8; }
+    .btn-step      { background: #1e293b; border: 1px solid #334155; color: #94a3b8; }
+
+    .speed-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.6rem; }
+    input[type=range] { accent-color: #6366f1; width: 110px; }
+
+    /* ── Array Visual ── */
+    .array-wrap { overflow-x: auto; padding-bottom: 0.4rem; }
+
+    .array-scene {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: max-content;
+    }
+
+    .array-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+    }
+
+    .cell-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .cell-idx {
+      font-size: 0.62rem;
+      color: #334155;
+      font-weight: 600;
+    }
+
+    .cell {
+      width: 54px;
+      height: 54px;
+      border-radius: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.15rem;
+      font-weight: 700;
+      border: 2px solid transparent;
+      position: relative;
+      transition: background 0.22s, border-color 0.22s, transform 0.2s, box-shadow 0.2s;
+    }
+
+    /* States */
+    .cell.default  { background: #1a1d2e; border-color: #252840; color: #64748b; }
+    .cell.in-win   { background: #2d2b6b; border-color: #6366f1; color: #c7d2fe; transform: translateY(-5px);
+                     box-shadow: 0 6px 20px rgba(99,102,241,0.25); }
+    .cell.best-win { background: #1e3a5f; border-color: #3b82f6; color: #93c5fd; transform: translateY(-5px);
+                     box-shadow: 0 6px 20px rgba(59,130,246,0.3); }
+    .cell.outgoing { background: #3b0f0f; border-color: #ef4444; color: #fca5a5; }
+    .cell.incoming { background: #0d2f1a; border-color: #22c55e; color: #86efac; }
+    .cell.done     { background: #111827; border-color: #1f2937; color: #374151; }
+    .cell.bf-scan  { background: #2d1f00; border-color: #f59e0b; color: #fde68a; }
+    .cell.bf-new   { background: #1c0f00; border-color: #d97706; color: #fbbf24; transform: translateY(-3px); }
+
+    /* bar chart inside cell */
+    .cell-bar {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      border-radius: 0 0 9px 9px;
+      opacity: 0.25;
+      transition: height 0.3s;
+    }
+
+    /* bracket */
+    .bracket-row { display: flex; gap: 6px; min-width: max-content; }
+    .bracket-cell { width: 54px; height: 8px; display: flex; align-items: center; }
+    .bracket-line {
+      height: 3px; width: 100%;
+      background: #6366f1; border-radius: 2px;
+      opacity: 0; transition: opacity 0.2s, background 0.2s;
+    }
+    .bracket-line.visible       { opacity: 1; background: #6366f1; }
+    .bracket-line.visible.best  { background: #3b82f6; }
+
+    /* ── Info Grid ── */
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 0.65rem;
+      margin-top: 1.2rem;
+    }
+    .info-box {
+      background: #0f1117;
+      border: 1px solid #1e2336;
+      border-radius: 10px;
+      padding: 0.7rem 0.9rem;
+      text-align: center;
+    }
+    .info-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.07em; color: #475569; margin-bottom: 0.25rem; }
+    .info-val   { font-size: 1.3rem; font-weight: 700; color: #f1f5f9; font-variant-numeric: tabular-nums; }
+    .info-val.highlight { color: #fde68a; }
+    .info-val.best      { color: #93c5fd; }
+
+    /* ── Max Tracker ── */
+    .max-tracker {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: #0f1117;
+      border: 1px solid #1e3a5f;
+      border-radius: 12px;
+      padding: 0.9rem 1.1rem;
+      margin-top: 1rem;
+    }
+    .max-label { font-size: 0.75rem; color: #475569; white-space: nowrap; }
+    .max-bar-wrap {
+      flex: 1;
+      background: #1a1d2e;
+      border-radius: 999px;
+      height: 10px;
+      overflow: hidden;
+    }
+    .max-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #3b82f6, #6366f1);
+      border-radius: 999px;
+      transition: width 0.4s ease;
+      width: 0%;
+    }
+    .max-val {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: #93c5fd;
+      min-width: 50px;
+      text-align: right;
+    }
+
+    /* ── Step Log ── */
+    .step-log {
+      background: #0d1117;
+      border: 1px solid #1a1f2e;
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+      font-size: 0.8rem;
+      line-height: 1.65;
+      color: #94a3b8;
+      min-height: 68px;
+      max-height: 130px;
+      overflow-y: auto;
+      margin-top: 1rem;
+    }
+    .log-add  { color: #86efac; font-weight: 600; }
+    .log-sub  { color: #fca5a5; font-weight: 600; }
+    .log-max  { color: #93c5fd; font-weight: 700; }
+    .log-hi   { color: #a5b4fc; font-weight: 600; }
+    .log-sum  { color: #fde68a; font-weight: 700; }
+    .log-done { color: #22c55e; font-weight: 700; }
+
+    /* ── Playback ── */
+    .playback-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-top: 1.2rem;
+      align-items: center;
+    }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+    .legend-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.73rem; color: #64748b; }
+    .legend-dot  { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+
+    /* ── Complexity Panel ── */
+    .complexity-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.9rem;
+      margin-top: 0.5rem;
+    }
+    @media (max-width: 540px) { .complexity-grid { grid-template-columns: 1fr; } }
+
+    .complexity-card {
+      border-radius: 12px;
+      padding: 1rem 1.1rem;
+    }
+    .complexity-card.bad  { background: #1a0a0a; border: 1px solid #7f1d1d; }
+    .complexity-card.good { background: #031a0c; border: 1px solid #14532d; }
+
+    .complexity-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      margin-bottom: 0.6rem;
+    }
+    .bad  .complexity-badge { background: #7f1d1d; color: #fca5a5; }
+    .good .complexity-badge { background: #14532d; color: #86efac; }
+
+    .complexity-card h3 { font-size: 0.88rem; color: #cbd5e1; margin-bottom: 0.4rem; }
+    .complexity-card p  { font-size: 0.78rem; color: #64748b; line-height: 1.55; }
+
+    /* ── Key Insight ── */
+    .insight {
+      background: #0f1117;
+      border-left: 3px solid #6366f1;
+      border-radius: 0 10px 10px 0;
+      padding: 0.85rem 1rem;
+      margin-top: 0.75rem;
+      font-size: 0.82rem;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+    @media (max-width: 520px) {
+      .cell { width: 42px; height: 42px; font-size: 0.92rem; }
+      .bracket-cell { width: 42px; }
+      input[type=text] { width: 180px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1>Maximum Sum Subarray of Size K</h1>
+  <p>Sliding Window Pattern · Step-by-step visualization</p>
+  <a href="https://leetcode.com/problems/largest-subarray-length-k/" target="_blank">↗ LeetCode</a>
+</div>
+
+<!-- Config -->
+<div class="card">
+  <div class="card-title">Configuration</div>
+  <div class="controls">
+    <label>Array</label>
+    <input type="text" id="arrInput" value="2, 1, 5, 1, 3, 2"/>
+    <label>K</label>
+    <input type="number" id="kInput" value="3" min="1" max="20"/>
+    <button class="btn btn-primary" onclick="applyConfig()">Apply</button>
+  </div>
+  <div class="speed-row">
+    <label>Speed</label>
+    <input type="range" id="speedRange" min="1" max="5" value="3" oninput="onSpeedChange(this.value)"/>
+    <span id="speedLabel" style="font-size:0.75rem;color:#475569;">Normal</span>
+  </div>
+</div>
+
+<!-- Main Visualizer -->
+<div class="card">
+  <div class="tabs">
+    <button class="tab active" id="tabSliding" onclick="switchMode('sliding')">Sliding Window — O(N)</button>
+    <button class="tab"        id="tabBrute"   onclick="switchMode('brute')">Brute Force — O(N·K)</button>
+  </div>
+
+  <div class="array-wrap">
+    <div class="array-scene">
+      <div class="array-row"   id="arrayRow"></div>
+      <div class="bracket-row" id="bracketRow"></div>
+    </div>
+  </div>
+
+  <!-- Info -->
+  <div class="info-grid">
+    <div class="info-box">
+      <div class="info-label">Window Start</div>
+      <div class="info-val" id="iStart">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Window End</div>
+      <div class="info-val" id="iEnd">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Window Sum</div>
+      <div class="info-val highlight" id="iSum">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Max Sum So Far</div>
+      <div class="info-val best" id="iMax">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Step</div>
+      <div class="info-val" id="iStep">0 / 0</div>
+    </div>
+  </div>
+
+  <!-- Max tracker bar -->
+  <div class="max-tracker">
+    <div class="max-label">Max Sum Progress</div>
+    <div class="max-bar-wrap">
+      <div class="max-bar" id="maxBar"></div>
+    </div>
+    <div class="max-val" id="maxValDisplay">–</div>
+  </div>
+
+  <!-- Log -->
+  <div class="step-log" id="stepLog">Press <strong>Play</strong> to start the animation.</div>
+
+  <!-- Playback -->
+  <div class="playback-row">
+    <button class="btn btn-play" id="btnPlay" onclick="playPause()">▶ Play</button>
+    <button class="btn btn-reset" onclick="resetAnim()">↺ Reset</button>
+    <button class="btn btn-step"  onclick="stepForward()">Step →</button>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend" id="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#6366f1"></div> In window</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div> Best window</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div> Leaving</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div> Entering</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#1f2937"></div> Processed</div>
+  </div>
+</div>
+
+<!-- Complexity -->
+<div class="card">
+  <div class="card-title">Complexity Comparison</div>
+  <div class="complexity-grid">
+    <div class="complexity-card bad">
+      <div class="complexity-badge">O(N × K) time · O(1) space</div>
+      <h3>Brute Force</h3>
+      <p>For every starting index i, loops through the next K elements to compute the sum — re-scanning the overlapping region every time.</p>
+    </div>
+    <div class="complexity-card good">
+      <div class="complexity-badge">O(N) time · O(1) space</div>
+      <h3>Sliding Window</h3>
+      <p>Reuses the previous window's sum. Each step is just one subtraction + one addition — constant work regardless of K.</p>
+    </div>
+  </div>
+  <div class="insight">
+    <strong style="color:#a5b4fc;">Key insight:</strong>
+    Two adjacent windows of size K share <strong style="color:#c7d2fe;">K − 1</strong> elements.
+    The sliding window avoids recomputing those shared elements by keeping a running sum,
+    <span class="log-sub">subtracting the element leaving</span> and
+    <span class="log-add">adding the element entering</span> — reducing the total work from
+    <em>O(N·K)</em> to <em>O(N)</em>.
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  State
+// ─────────────────────────────────────────────
+let arr  = [2, 1, 5, 1, 3, 2];
+let K    = 3;
+let mode = 'sliding';
+
+let steps       = [];
+let currentStep = -1;
+let playing     = false;
+let timer       = null;
+let bestWindowStart = -1; // tracks which window holds the max
+
+const SPEEDS = { 1:1600, 2:1050, 3:650, 4:320, 5:140 };
+const SPEED_LABELS = { 1:'Slow', 2:'Relaxed', 3:'Normal', 4:'Fast', 5:'Turbo' };
+
+// ─────────────────────────────────────────────
+//  DOM Build
+// ─────────────────────────────────────────────
+function buildDOM() {
+  const row = document.getElementById('arrayRow');
+  const brRow = document.getElementById('bracketRow');
+  row.innerHTML = '';
+  brRow.innerHTML = '';
+
+  const maxVal = Math.max(...arr.map(Math.abs), 1);
+
+  arr.forEach((v, i) => {
+    const col = document.createElement('div');
+    col.className = 'cell-col';
+
+    const idx = document.createElement('div');
+    idx.className = 'cell-idx';
+    idx.textContent = i;
+
+    const cell = document.createElement('div');
+    cell.className = 'cell default';
+    cell.id = `cell-${i}`;
+
+    // value label
+    const span = document.createElement('span');
+    span.textContent = v;
+    span.style.position = 'relative';
+    span.style.zIndex = '1';
+    cell.appendChild(span);
+
+    // subtle height bar
+    const bar = document.createElement('div');
+    bar.className = 'cell-bar';
+    bar.style.height = `${Math.max(4, (Math.abs(v) / maxVal) * 70)}%`;
+    bar.style.background = '#6366f1';
+    cell.appendChild(bar);
+
+    col.append(idx, cell);
+    row.appendChild(col);
+
+    const bc = document.createElement('div');
+    bc.className = 'bracket-cell';
+    const bl = document.createElement('div');
+    bl.className = 'bracket-line';
+    bl.id = `bracket-${i}`;
+    bc.appendChild(bl);
+    brRow.appendChild(bc);
+  });
+}
+
+// ─────────────────────────────────────────────
+//  Step Builders
+// ─────────────────────────────────────────────
+function buildSlidingSteps() {
+  const frames = [];
+  let windowSum = 0;
+  let maxSum    = 0;
+  let winStart  = 0;
+  let bestStart = -1;
+  let bestEnd   = -1;
+
+  for (let windowEnd = 0; windowEnd < arr.length; windowEnd++) {
+    windowSum += arr[windowEnd];
+
+    if (windowEnd >= K - 1) {
+      const isNewMax = windowSum > maxSum;
+      if (isNewMax) {
+        maxSum    = windowSum;
+        bestStart = winStart;
+        bestEnd   = windowEnd;
+      }
+
+      frames.push({
+        winStart, windowEnd, windowSum, maxSum,
+        bestStart, bestEnd,
+        outgoing: winStart,
+        incoming: windowEnd,
+        phase: 'compute',
+        isNewMax,
+        log: buildSlidingLog(winStart, windowEnd, windowSum, maxSum, isNewMax)
+      });
+
+      windowSum -= arr[winStart];
+      winStart++;
+    } else {
+      frames.push({
+        winStart: 0, windowEnd, windowSum, maxSum,
+        bestStart, bestEnd,
+        outgoing: -1, incoming: windowEnd,
+        phase: 'fill',
+        isNewMax: false,
+        log: `<span class="log-add">+arr[${windowEnd}] = ${arr[windowEnd]}</span> — running sum = <span class="log-sum">${windowSum}</span>. Filling window (${K - 1 - windowEnd} more needed).`
+      });
+    }
+  }
+  return frames;
+}
+
+function buildSlidingLog(ws, we, sum, maxSum, isNewMax) {
+  const parts = [];
+  if (ws > 0) {
+    parts.push(`<span class="log-sub">−arr[${ws - 1}] = ${arr[ws - 1]}</span> (left window).`);
+    parts.push(`<span class="log-add">+arr[${we}] = ${arr[we]}</span> (entered window).`);
+  }
+  parts.push(`Window [${ws}…${we}] sum = <span class="log-sum">${sum}</span>.`);
+  if (isNewMax) {
+    parts.push(`<span class="log-max">🏆 New max! ${sum} > previous ${maxSum === sum ? 0 : 'old'}.</span>`);
+  } else {
+    parts.push(`Not a new max (current max = <span class="log-max">${maxSum}</span>).`);
+  }
+  return parts.join(' ');
+}
+
+function buildBruteSteps() {
+  const frames = [];
+  let maxSum    = 0;
+  let bestStart = -1;
+  let bestEnd   = -1;
+
+  for (let i = 0; i <= arr.length - K; i++) {
+    let windowSum = 0;
+
+    for (let j = i; j < i + K; j++) {
+      windowSum += arr[j];
+      frames.push({
+        outerI: i, innerJ: j, windowSum, maxSum,
+        bestStart, bestEnd,
+        phase: 'accumulate',
+        isNewMax: false,
+        log: `Outer i=${i}, scanning j=${j}: <span class="log-add">+arr[${j}] = ${arr[j]}</span> → running sum = <span class="log-sum">${windowSum}</span>.`
+      });
+    }
+
+    const isNewMax = windowSum > maxSum;
+    if (isNewMax) { maxSum = windowSum; bestStart = i; bestEnd = i + K - 1; }
+    frames.push({
+      outerI: i, innerJ: -1, windowSum, maxSum,
+      bestStart, bestEnd,
+      phase: 'result', isNewMax,
+      log: `Window [${i}…${i + K - 1}] sum = <span class="log-sum">${windowSum}</span>. ${isNewMax ? `<span class="log-max">🏆 New max = ${maxSum}!</span>` : `Max stays at <span class="log-max">${maxSum}</span>.`}`
+    });
+  }
+  return frames;
+}
+
+// ─────────────────────────────────────────────
+//  Frame Renderer
+// ─────────────────────────────────────────────
+function applyFrame(f) {
+  // reset all cells
+  arr.forEach((_, i) => {
+    document.getElementById(`cell-${i}`).className = 'cell default';
+    const b = document.getElementById(`bracket-${i}`);
+    if (b) b.className = 'bracket-line';
+  });
+
+  if (mode === 'sliding') renderSliding(f);
+  else                    renderBrute(f);
+
+  // info panel
+  document.getElementById('iStep').textContent = `${currentStep + 1} / ${steps.length}`;
+  document.getElementById('stepLog').innerHTML  = f.log;
+
+  // max bar
+  const totalPossibleMax = arr.reduce((a, b) => a + b, 0);
+  const pct = totalPossibleMax > 0 ? Math.min(100, (f.maxSum / totalPossibleMax) * 100) : 0;
+  document.getElementById('maxBar').style.width = pct + '%';
+  document.getElementById('maxValDisplay').textContent = f.maxSum || '–';
+  document.getElementById('iMax').textContent           = f.maxSum || '–';
+}
+
+function renderSliding(f) {
+  const { winStart, windowEnd, windowSum, bestStart, bestEnd, outgoing, incoming, phase } = f;
+
+  // best window (blue) — render first, then override with current
+  if (bestStart >= 0) {
+    for (let i = bestStart; i <= bestEnd; i++) {
+      const c = document.getElementById(`cell-${i}`);
+      const b = document.getElementById(`bracket-${i}`);
+      c.className = 'cell best-win';
+      if (b) { b.className = 'bracket-line visible best'; }
+    }
+  }
+
+  // current window (purple) — override best if overlapping
+  for (let i = winStart; i <= windowEnd; i++) {
+    const c = document.getElementById(`cell-${i}`);
+    const b = document.getElementById(`bracket-${i}`);
+    if (phase === 'compute' && i === outgoing && winStart > 0) {
+      c.className = 'cell outgoing';
+    } else if (phase === 'compute' && i === incoming && windowEnd >= K - 1) {
+      c.className = 'cell incoming';
+    } else {
+      c.className = 'cell in-win';
+    }
+    if (b) b.className = 'bracket-line visible';
+  }
+
+  // greyed out past cells
+  for (let i = 0; i < winStart; i++) {
+    const c = document.getElementById(`cell-${i}`);
+    if (!c.className.includes('best-win')) c.className = 'cell done';
+  }
+
+  document.getElementById('iStart').textContent = winStart;
+  document.getElementById('iEnd').textContent   = windowEnd;
+  document.getElementById('iSum').textContent   = windowSum;
+}
+
+function renderBrute(f) {
+  const { outerI, innerJ, windowSum, bestStart, bestEnd, phase } = f;
+
+  if (bestStart >= 0) {
+    for (let i = bestStart; i <= bestEnd; i++) {
+      document.getElementById(`cell-${i}`).className = 'cell best-win';
+      const b = document.getElementById(`bracket-${i}`);
+      if (b) b.className = 'bracket-line visible best';
+    }
+  }
+
+  for (let i = outerI; i < outerI + K; i++) {
+    if (phase === 'accumulate' && i > innerJ) break;
+    const c = document.getElementById(`cell-${i}`);
+    const b = document.getElementById(`bracket-${i}`);
+    c.className = i === innerJ ? 'cell bf-new' : 'cell bf-scan';
+    if (b) b.className = 'bracket-line visible';
+  }
+
+  document.getElementById('iStart').textContent = outerI;
+  document.getElementById('iEnd').textContent   = outerI + K - 1;
+  document.getElementById('iSum').textContent   = windowSum;
+}
+
+// ─────────────────────────────────────────────
+//  Playback
+// ─────────────────────────────────────────────
+function playPause() {
+  if (playing) {
+    clearInterval(timer);
+    playing = false;
+    setBtnPlay(false);
+  } else {
+    if (currentStep >= steps.length - 1) resetAnim();
+    playing = true;
+    setBtnPlay(true);
+    advanceStep();
+    timer = setInterval(advanceStep, getDelay());
+  }
+}
+
+function advanceStep() {
+  if (currentStep < steps.length - 1) {
+    currentStep++;
+    applyFrame(steps[currentStep]);
+  } else {
+    clearInterval(timer);
+    playing = false;
+    setBtnPlay(false);
+    const f = steps[steps.length - 1];
+    document.getElementById('stepLog').innerHTML += ` <span class="log-done">✓ Max sum = ${f.maxSum}</span>`;
+  }
+}
+
+function stepForward() {
+  if (playing) { clearInterval(timer); playing = false; setBtnPlay(false); }
+  if (currentStep < steps.length - 1) { currentStep++; applyFrame(steps[currentStep]); }
+}
+
+function resetAnim() {
+  clearInterval(timer);
+  playing = false;
+  setBtnPlay(false);
+  currentStep = -1;
+  buildDOM();
+  ['iStart','iEnd','iSum','iMax'].forEach(id => document.getElementById(id).textContent = '–');
+  document.getElementById('iStep').textContent = `0 / ${steps.length}`;
+  document.getElementById('stepLog').textContent = 'Press Play to start the animation.';
+  document.getElementById('maxBar').style.width = '0%';
+  document.getElementById('maxValDisplay').textContent = '–';
+}
+
+function setBtnPlay(isPlaying) {
+  const btn = document.getElementById('btnPlay');
+  btn.className = isPlaying ? 'btn btn-pause' : 'btn btn-play';
+  btn.textContent = isPlaying ? '⏸ Pause' : '▶ Play';
+}
+
+function getDelay() {
+  return SPEEDS[document.getElementById('speedRange').value] || 650;
+}
+
+function onSpeedChange(v) {
+  document.getElementById('speedLabel').textContent = SPEED_LABELS[v];
+  if (playing) { clearInterval(timer); timer = setInterval(advanceStep, getDelay()); }
+}
+
+// ─────────────────────────────────────────────
+//  Mode switch
+// ─────────────────────────────────────────────
+function switchMode(m) {
+  mode = m;
+  document.getElementById('tabSliding').classList.toggle('active', m === 'sliding');
+  document.getElementById('tabBrute').classList.toggle('active',   m === 'brute');
+  rebuildAll();
+}
+
+// ─────────────────────────────────────────────
+//  Config
+// ─────────────────────────────────────────────
+function applyConfig() {
+  const raw = document.getElementById('arrInput').value;
+  const parsed = raw.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+  if (!parsed.length) return;
+  const k = parseInt(document.getElementById('kInput').value);
+  if (isNaN(k) || k < 1 || k > parsed.length) {
+    document.getElementById('stepLog').innerHTML = '<span style="color:#fca5a5;">K must be ≥ 1 and ≤ array length.</span>';
+    return;
+  }
+  arr = parsed; K = k;
+  rebuildAll();
+}
+
+function rebuildAll() {
+  steps = mode === 'sliding' ? buildSlidingSteps() : buildBruteSteps();
+  resetAnim();
+}
+
+// ─────────────────────────────────────────────
+//  Init
+// ─────────────────────────────────────────────
+rebuildAll();
+</script>
+</body>
+</html>
