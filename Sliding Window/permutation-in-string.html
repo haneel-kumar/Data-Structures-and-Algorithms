@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Permutation in a String – Sliding Window</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #08090f;
+      --surf:    #0d0f1e;
+      --surf2:   #111326;
+      --border:  #191c32;
+      --bord2:   #20243c;
+      --muted:   #334155;
+      --text:    #e2e8f0;
+      --match:   #22c55e;   /* green  – matched char */
+      --need:    #f59e0b;   /* amber  – still needed */
+      --out:     #ef4444;   /* red    – put back / leaving */
+      --win:     #3b82f6;   /* blue   – window frame */
+      --found:   #a855f7;   /* purple – permutation found! */
+      --pat:     #818cf8;   /* indigo – pattern */
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1rem 5rem;
+    }
+
+    /* ── Header ── */
+    .header { text-align:center; margin-bottom:1.8rem; }
+    .header h1 { font-size:1.45rem; font-weight:800; color:#f8fafc; letter-spacing:-.02em; }
+    .header p  { color:#475569; font-size:.82rem; margin-top:.3rem; }
+    .header a  { color:var(--pat); text-decoration:none; font-size:.76rem; }
+    .header a:hover { text-decoration:underline; }
+
+    /* ── What's different strip ── */
+    .diff-strip {
+      max-width:960px; margin:0 auto 1.3rem;
+      display:grid; grid-template-columns:1fr 1fr; gap:.8rem;
+    }
+    @media(max-width:560px){ .diff-strip { grid-template-columns:1fr; } }
+    .ds-box { border-radius:12px; padding:.9rem 1rem; font-size:.77rem; line-height:1.55; }
+    .ds-box.prev { background:#0f172a; border:1px solid #1e293b; color:#475569; }
+    .ds-box.curr { background:#1e1040; border:1px solid #4338ca; color:#a5b4fc; }
+    .ds-box h3   { font-size:.8rem; margin-bottom:.35rem; }
+    .ds-box.prev h3 { color:#334155; }
+    .ds-box.curr h3 { color:var(--pat); }
+    code { font-family:monospace; font-size:.8rem; background:#ffffff12; padding:.1rem .3rem; border-radius:4px; }
+
+    /* ── Card ── */
+    .card {
+      background:var(--surf); border:1px solid var(--border);
+      border-radius:16px; padding:1.4rem 1.5rem;
+      margin-bottom:1.3rem; max-width:960px;
+      margin-left:auto; margin-right:auto;
+    }
+    .card-title { font-size:.67rem; font-weight:700; text-transform:uppercase;
+                  letter-spacing:.1em; color:var(--bord2); margin-bottom:.9rem; }
+
+    /* ── Controls ── */
+    .controls { display:flex; flex-wrap:wrap; align-items:center; gap:.6rem; }
+    label { font-size:.8rem; color:#94a3b8; }
+    input[type=text] {
+      background:var(--bg); border:1px solid var(--border);
+      border-radius:8px; color:#f1f5f9;
+      padding:.38rem .65rem; font-size:.9rem; font-family:monospace; letter-spacing:.08em;
+    }
+    input.str-input { width:200px; }
+    input.pat-input { width:110px; }
+    input:focus { outline:2px solid var(--pat); outline-offset:2px; }
+    .btn { padding:.4rem 1rem; border-radius:8px; border:none;
+           font-size:.8rem; font-weight:600; cursor:pointer;
+           transition:opacity .15s, transform .1s; }
+    .btn:hover  { opacity:.85; transform:translateY(-1px); }
+    .btn:active { transform:none; }
+    .btn-primary { background:var(--pat); color:#fff; }
+    .btn-play    { background:var(--match); color:#fff; min-width:86px; }
+    .btn-pause   { background:var(--need); color:#000; min-width:86px; }
+    .btn-reset   { background:var(--surf2); border:1px solid var(--border); color:#64748b; }
+    .btn-step    { background:var(--surf2); border:1px solid var(--border); color:#64748b; }
+    .btn-ex      { background:var(--surf2); border:1px solid var(--border); color:#64748b; font-size:.72rem; }
+    .speed-row   { display:flex; align-items:center; gap:.5rem; margin-top:.6rem; }
+    input[type=range] { accent-color:var(--pat); width:110px; }
+
+    /* ── Pattern display ── */
+    .pattern-section {
+      background:var(--bg); border:1px solid #1e2040;
+      border-radius:13px; padding:1rem 1.1rem; margin-bottom:1.1rem;
+    }
+    .pattern-header { display:flex; align-items:center; gap:.75rem; margin-bottom:.75rem; }
+    .pattern-label  { font-size:.65rem; font-weight:700; text-transform:uppercase;
+                      letter-spacing:.09em; color:var(--pat); }
+    .pattern-cells  { display:flex; gap:5px; flex-wrap:wrap; }
+    .pat-cell {
+      width:44px; height:44px; border-radius:9px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:1.2rem; font-weight:800; font-family:monospace;
+      border:2px solid var(--pat); background:#1e1040; color:#a5b4fc;
+    }
+
+    /* ── Phase banner ── */
+    .phase-banner {
+      display:flex; align-items:center; gap:.65rem;
+      padding:.5rem .95rem; border-radius:11px;
+      font-size:.77rem; font-weight:700;
+      margin-bottom:1.1rem; border:1px solid transparent; transition:all .3s;
+    }
+    .ph-slide  { background:#0c1a30; border-color:var(--win);   color:#93c5fd; }
+    .ph-match  { background:#031a0e; border-color:var(--match);  color:#86efac; }
+    .ph-back   { background:#200a00; border-color:var(--out);    color:#fca5a5; }
+    .ph-found  { background:#190b2e; border-color:var(--found);  color:#e9d5ff;
+                 animation:found-pulse 1s ease-in-out; }
+    .ph-idle   { background:#0f111a; border-color:#1e293b; color:#334155; }
+    @keyframes found-pulse {
+      0%   { box-shadow:0 0 0   rgba(168,85,247,0); }
+      50%  { box-shadow:0 0 24px rgba(168,85,247,.45); }
+      100% { box-shadow:0 0 12px rgba(168,85,247,.2); }
+    }
+    .ph-dot    { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+    .ph-slide  .ph-dot { background:var(--win);   box-shadow:0 0 6px var(--win); }
+    .ph-match  .ph-dot { background:var(--match); box-shadow:0 0 6px var(--match); }
+    .ph-back   .ph-dot { background:var(--out);   box-shadow:0 0 6px var(--out);
+                         animation:blink .5s infinite; }
+    .ph-found  .ph-dot { background:var(--found); box-shadow:0 0 8px var(--found);
+                         animation:blink .4s infinite; }
+    .ph-idle   .ph-dot { background:#374151; }
+    @keyframes blink { 0%,100%{opacity:1}50%{opacity:.2} }
+
+    /* ── String display ── */
+    .string-wrap { overflow-x:auto; padding-bottom:.5rem; }
+    .string-scene { display:flex; flex-direction:column; gap:4px; min-width:max-content; }
+    .string-row  { display:flex; gap:5px; }
+    .char-col    { display:flex; flex-direction:column; align-items:center; gap:3px; }
+    .char-idx    { font-size:.6rem; color:var(--bord2); font-weight:600; }
+
+    .char-cell {
+      width:52px; height:58px; border-radius:11px;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+      font-size:1.35rem; font-weight:800; font-family:monospace;
+      border:2px solid transparent; transition:all .22s; position:relative;
+    }
+    .ch-lbl  { position:relative; z-index:1; }
+    .ch-role { font-size:.52rem; font-weight:700; font-family:'Segoe UI',sans-serif;
+               position:relative; z-index:1; }
+
+    .char-cell.default   { background:var(--surf2); border-color:var(--border); color:var(--bord2); }
+    .char-cell.default .ch-role { color:var(--border); }
+    .char-cell.in-win    { background:#0c1a30; border-color:var(--win); color:#93c5fd;
+                           transform:translateY(-4px); box-shadow:0 6px 18px rgba(59,130,246,.18); }
+    .char-cell.in-win .ch-role { color:#1d4ed8; }
+    .char-cell.matched   { background:#052e16; border-color:var(--match); color:#86efac;
+                           transform:translateY(-6px); box-shadow:0 7px 22px rgba(34,197,94,.25); }
+    .char-cell.matched .ch-role { color:#16a34a; }
+    .char-cell.in-found  { background:#190b2e; border-color:var(--found); color:#e9d5ff;
+                           transform:translateY(-6px); box-shadow:0 8px 24px rgba(168,85,247,.3); }
+    .char-cell.in-found .ch-role { color:#9333ea; }
+    .char-cell.leaving   { background:#200a00; border-color:var(--out); color:#fca5a5;
+                           transform:translateY(3px); }
+    .char-cell.leaving .ch-role { color:var(--out); }
+    .char-cell.not-in-pat{ background:#1a0c00; border-color:#92400e; color:#fde68a;
+                           transform:translateY(-4px); }
+    .char-cell.not-in-pat .ch-role { color:#92400e; }
+    .char-cell.done      { background:var(--bg); border-color:#0f111a; color:#1e2236; }
+    .char-cell.done .ch-role { color:#0f111a; }
+
+    /* bracket */
+    .bracket-row { display:flex; gap:5px; min-width:max-content; }
+    .bracket-cell { width:52px; height:7px; display:flex; align-items:center; }
+    .bracket-line { height:3px; width:100%; border-radius:2px;
+                    opacity:0; transition:opacity .2s, background .2s; }
+    .bracket-line.v       { opacity:1; background:var(--win); }
+    .bracket-line.v.found { background:var(--found); }
+    .bracket-line.v.back  { background:var(--out); }
+
+    /* ── Found banner ── */
+    .found-banner {
+      display:none; align-items:center; justify-content:center; gap:.8rem;
+      background:#190b2e; border:2px solid var(--found);
+      border-radius:14px; padding:1rem 1.5rem; margin-top:1rem;
+      animation:found-pulse 1.2s ease-in-out;
+    }
+    .found-banner.visible { display:flex; }
+    .found-icon { font-size:1.6rem; }
+    .found-text { text-align:center; }
+    .found-title { font-size:1rem; font-weight:800; color:#e9d5ff; }
+    .found-sub   { font-size:.78rem; color:#9333ea; margin-top:.2rem; }
+
+    /* ── Freq map panel ── */
+    .freq-panel {
+      background:var(--bg); border:1px solid var(--border);
+      border-radius:13px; padding:1rem 1.1rem; margin-top:1rem;
+    }
+    .freq-header {
+      display:flex; justify-content:space-between; align-items:center; margin-bottom:.75rem;
+    }
+    .freq-title { font-size:.65rem; font-weight:700; text-transform:uppercase;
+                  letter-spacing:.09em; color:var(--bord2); }
+    .freq-entries { display:flex; flex-wrap:wrap; gap:.5rem; min-height:50px; }
+
+    .freq-entry {
+      display:flex; flex-direction:column; align-items:center;
+      padding:.4rem .7rem; border-radius:10px;
+      border:2px solid transparent; font-family:monospace;
+      transition:all .22s; min-width:54px;
+    }
+    .fe-char  { font-size:1rem; font-weight:800; }
+    .fe-count { font-size:1.2rem; font-weight:900; font-variant-numeric:tabular-nums; }
+    .fe-bar-wrap { width:100%; background:var(--surf2); border-radius:999px; height:4px;
+                   overflow:hidden; margin-top:4px; }
+    .fe-bar { height:100%; border-radius:999px; transition:width .3s; }
+
+    .freq-entry.needed  { border-color:var(--need); background:#1c1000; }
+    .freq-entry.needed .fe-char  { color:var(--need); }
+    .freq-entry.needed .fe-count { color:#fde68a; }
+    .freq-entry.matched-entry { border-color:var(--match); background:#052e16; transform:scale(1.06);
+                                box-shadow:0 4px 14px rgba(34,197,94,.2); }
+    .freq-entry.matched-entry .fe-char  { color:var(--match); }
+    .freq-entry.matched-entry .fe-count { color:#86efac; }
+    .freq-entry.over { border-color:var(--out); background:#200606;
+                       animation:shake .3s; }
+    .freq-entry.over .fe-char  { color:var(--out); }
+    .freq-entry.over .fe-count { color:#fca5a5; }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 30%{transform:translateX(-3px)} 70%{transform:translateX(3px)} }
+
+    /* ── isMatch counter ── */
+    .match-counter {
+      background:var(--bg); border:2px solid var(--bord2);
+      border-radius:13px; padding:.9rem 1.1rem; margin-top:1rem;
+      transition:all .3s;
+    }
+    .match-counter.winning { border-color:var(--found); background:#190b2e;
+                             box-shadow:0 0 20px rgba(168,85,247,.2); }
+    .mc-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:.5rem; }
+    .mc-title  { font-size:.65rem; font-weight:700; text-transform:uppercase;
+                 letter-spacing:.09em; color:var(--bord2); }
+    .mc-fraction { font-size:1.5rem; font-weight:900; font-variant-numeric:tabular-nums; }
+    .mc-fraction.done { color:var(--found); }
+    .mc-fraction.partial { color:var(--need); }
+    .mc-bar-wrap { background:var(--surf2); border-radius:999px; height:10px; overflow:hidden; margin-bottom:.45rem; }
+    .mc-bar { height:100%; border-radius:999px; transition:width .35s ease, background .3s; }
+    .mc-dots { display:flex; gap:6px; flex-wrap:wrap; }
+    .mc-dot {
+      width:28px; height:28px; border-radius:7px;
+      display:flex; align-items:center; justify-content:center;
+      font-family:monospace; font-size:.85rem; font-weight:800;
+      border:2px solid; transition:all .2s;
+    }
+    .mc-dot.matched-dot { background:#052e16; border-color:var(--match); color:#86efac; }
+    .mc-dot.needed-dot  { background:var(--surf2); border-color:var(--bord2); color:var(--bord2); }
+    .mc-note { font-size:.72rem; color:var(--muted); margin-top:.4rem; }
+
+    /* ── Info grid ── */
+    .info-grid {
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(108px,1fr));
+      gap:.6rem; margin-top:1rem;
+    }
+    .info-box { background:var(--bg); border:1px solid #141827;
+                border-radius:10px; padding:.65rem .85rem; text-align:center; }
+    .info-label { font-size:.6rem; text-transform:uppercase; letter-spacing:.08em;
+                  color:var(--bord2); margin-bottom:.22rem; }
+    .info-val   { font-size:1.2rem; font-weight:700; color:#f1f5f9; font-variant-numeric:tabular-nums; }
+    .info-val.blue   { color:#93c5fd; }
+    .info-val.green  { color:#86efac; }
+    .info-val.amber  { color:#fde68a; }
+    .info-val.purple { color:#c4b5fd; }
+    .info-val.red    { color:#fca5a5; }
+
+    /* ── Step log ── */
+    .step-log {
+      background:#060810; border:1px solid var(--surf);
+      border-radius:10px; padding:.8rem 1rem;
+      font-size:.79rem; line-height:1.65; color:#475569;
+      min-height:66px; max-height:125px; overflow-y:auto; margin-top:1rem;
+    }
+    .log-slide { color:#93c5fd; font-weight:600; }
+    .log-match { color:#86efac; font-weight:700; }
+    .log-back  { color:#fca5a5; font-weight:600; }
+    .log-found { color:#e9d5ff; font-weight:700; }
+    .log-skip  { color:#fde68a; font-weight:600; }
+    .log-done  { color:#22c55e; font-weight:700; }
+
+    .playback-row { display:flex; flex-wrap:wrap; gap:.55rem; margin-top:1.1rem; }
+    .legend { display:flex; flex-wrap:wrap; gap:.65rem; margin-top:.9rem; }
+    .legend-item { display:flex; align-items:center; gap:.35rem; font-size:.71rem; color:#334155; }
+    .legend-dot  { width:10px; height:10px; border-radius:3px; flex-shrink:0; }
+
+    /* ── Algo steps ── */
+    .algo-steps { list-style:none; margin-top:.5rem; display:flex; flex-direction:column; gap:.6rem; }
+    .algo-step  { display:flex; gap:.7rem; align-items:flex-start; }
+    .step-num   { width:22px; height:22px; border-radius:50%; flex-shrink:0;
+                  background:#1e1040; border:1px solid var(--pat);
+                  color:var(--pat); font-size:.7rem; font-weight:700;
+                  display:flex; align-items:center; justify-content:center; margin-top:.05rem; }
+    .step-text  { font-size:.78rem; color:#475569; line-height:1.55; }
+
+    .complexity-row { display:flex; gap:.7rem; flex-wrap:wrap; margin-top:.65rem; }
+    .complexity-badge {
+      display:inline-flex; align-items:center; gap:.4rem;
+      padding:.28rem .75rem; border-radius:999px; font-size:.73rem; font-weight:700;
+    }
+    .badge-time  { background:#052e16; border:1px solid #166534; color:#86efac; }
+    .badge-space { background:#1e1040; border:1px solid #4338ca; color:#a5b4fc; }
+    .badge-dot   { width:7px; height:7px; border-radius:50%; }
+    .badge-time  .badge-dot { background:#22c55e; }
+    .badge-space .badge-dot { background:var(--pat); }
+
+    ::-webkit-scrollbar { width:5px; height:5px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+    @media(max-width:500px) {
+      .char-cell { width:40px; height:50px; font-size:1.1rem; }
+      .bracket-cell { width:40px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Permutation in a String</h1>
+  <p>Does the string contain any permutation of the pattern? · Fixed-size Sliding Window + isMatch counter</p>
+  <a href="https://leetcode.com/problems/permutation-in-string/" target="_blank">↗ LeetCode #567</a>
+</div>
+
+<!-- What's different -->
+<div class="diff-strip">
+  <div class="ds-box prev">
+    <h3>Previous problems — find longest/smallest window</h3>
+    Dynamic window size. Return a length (or boolean after checking length). Shrink only when invalid.
+    The window keeps changing size.
+  </div>
+  <div class="ds-box curr">
+    <h3>This problem — fixed window = pattern.length</h3>
+    Window is always exactly <code>pattern.length</code> characters. We slide it across the string one step at a time.
+    Goal: does <strong>any</strong> window match all pattern characters? Returns <code>true/false</code>.
+  </div>
+</div>
+
+<!-- Config -->
+<div class="card">
+  <div class="card-title">Configuration</div>
+  <div class="controls">
+    <label>String</label>
+    <input type="text" class="str-input" id="strInput" value="oidbcaf"/>
+    <label>Pattern</label>
+    <input type="text" class="pat-input" id="patInput" value="abc"/>
+    <button class="btn btn-primary" onclick="applyConfig()">Apply</button>
+  </div>
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.55rem;">
+    <button class="btn btn-ex" onclick='loadEx("oidbcaf","abc")'>"oidbcaf" / "abc" → true</button>
+    <button class="btn btn-ex" onclick='loadEx("odicf","dc")'>"odicf" / "dc" → false</button>
+    <button class="btn btn-ex" onclick='loadEx("bcdxabcdy","bcdxabcdy")'>"bcdxabcdy" / "bcdxabcdy" → true</button>
+    <button class="btn btn-ex" onclick='loadEx("aaacb","abc")'>"aaacb" / "abc" → true</button>
+  </div>
+  <div class="speed-row">
+    <label>Speed</label>
+    <input type="range" id="speedRange" min="1" max="5" value="3" oninput="onSpeedChange(this.value)"/>
+    <span id="speedLabel" style="font-size:.73rem;color:var(--bord2);">Normal</span>
+  </div>
+</div>
+
+<!-- Visualizer -->
+<div class="card">
+  <!-- Pattern display -->
+  <div class="pattern-section">
+    <div class="pattern-header">
+      <div class="pattern-label">Pattern</div>
+      <div class="pattern-cells" id="patternCells"></div>
+    </div>
+  </div>
+
+  <!-- Phase banner -->
+  <div class="phase-banner ph-idle" id="phaseBanner">
+    <div class="ph-dot"></div>
+    <span id="phaseText">Ready — press Play to begin</span>
+  </div>
+
+  <!-- String display -->
+  <div class="string-wrap">
+    <div class="string-scene">
+      <div class="string-row"  id="stringRow"></div>
+      <div class="bracket-row" id="bracketRow"></div>
+    </div>
+  </div>
+
+  <!-- Found banner -->
+  <div class="found-banner" id="foundBanner">
+    <div class="found-icon">🎉</div>
+    <div class="found-text">
+      <div class="found-title">Permutation Found!</div>
+      <div class="found-sub" id="foundSub">Window matches the pattern</div>
+    </div>
+  </div>
+
+  <!-- Freq map -->
+  <div class="freq-panel">
+    <div class="freq-header">
+      <div class="freq-title">charFrequency Map (pattern chars remaining)</div>
+      <div style="font-size:.7rem;color:var(--bord2);">0 = fully matched ✓</div>
+    </div>
+    <div class="freq-entries" id="freqEntries">
+      <span style="font-size:.72rem;color:var(--bord2);">empty</span>
+    </div>
+  </div>
+
+  <!-- isMatch counter -->
+  <div class="match-counter" id="matchCounter">
+    <div class="mc-header">
+      <div class="mc-title">isMatch — distinct chars fully matched</div>
+      <div class="mc-fraction partial" id="mcFraction">0 / 0</div>
+    </div>
+    <div class="mc-bar-wrap">
+      <div class="mc-bar" id="mcBar" style="width:0%;background:var(--need);"></div>
+    </div>
+    <div class="mc-dots" id="mcDots"></div>
+    <div class="mc-note" id="mcNote">Each distinct pattern char contributes 1 when its freq reaches 0.</div>
+  </div>
+
+  <!-- Info grid -->
+  <div class="info-grid">
+    <div class="info-box">
+      <div class="info-label">windowStart</div>
+      <div class="info-val blue" id="iStart">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">windowEnd</div>
+      <div class="info-val green" id="iEnd">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Window</div>
+      <div class="info-val amber" id="iWin" style="font-family:monospace;font-size:.95rem;">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">isMatch</div>
+      <div class="info-val purple" id="iMatch">0</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Target</div>
+      <div class="info-val" id="iTarget">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Step</div>
+      <div class="info-val" id="iStep">0 / 0</div>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="step-log" id="stepLog">Press <strong>Play</strong> to start the animation.</div>
+
+  <!-- Playback -->
+  <div class="playback-row">
+    <button class="btn btn-play" id="btnPlay" onclick="playPause()">▶ Play</button>
+    <button class="btn btn-reset" onclick="resetAnim()">↺ Reset</button>
+    <button class="btn btn-step"  onclick="stepFwd()">Step →</button>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--match)"></div> Matched char (freq = 0)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--win)"></div> In window (not yet matched)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div> Not in pattern</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--out)"></div> Leaving window (put back)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--found)"></div> Permutation found!</div>
+  </div>
+</div>
+
+<!-- Algorithm + Complexity -->
+<div class="card">
+  <div class="card-title">Algorithm Steps</div>
+  <ul class="algo-steps">
+    <li class="algo-step">
+      <div class="step-num">1</div>
+      <div class="step-text">Build <code>charFrequency</code> map from the <strong>pattern</strong> (not the string). Count how many times each distinct character appears.</div>
+    </li>
+    <li class="algo-step">
+      <div class="step-num">2</div>
+      <div class="step-text">Slide a fixed window of exactly <code>pattern.length</code> across the string. For each new char entering: if it's in the map, decrement its count. If count hits 0, increment <code>isMatch</code>.</div>
+    </li>
+    <li class="algo-step">
+      <div class="step-num">3</div>
+      <div class="step-text">If <code>isMatch === Object.keys(charFrequency).length</code>, every pattern char is fully satisfied → return <code>true</code>.</div>
+    </li>
+    <li class="algo-step">
+      <div class="step-num">4</div>
+      <div class="step-text">When window exceeds pattern length, slide by removing the leftmost char. If that char is in the map: if its count was 0 (was fully matched), decrement <code>isMatch</code> first; then increment its count back.</div>
+    </li>
+  </ul>
+  <div class="complexity-row" style="margin-top:.9rem;">
+    <div class="complexity-badge badge-time"><div class="badge-dot"></div> O(N + M) time — N = string, M = pattern</div>
+    <div class="complexity-badge badge-space"><div class="badge-dot"></div> O(M) space — at most M distinct chars in map</div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────
+//  Char colour per unique char
+// ─────────────────────────────────────────
+const PALETTE = [
+  '#818cf8','#34d399','#f472b6','#fb923c','#facc15',
+  '#22d3ee','#60a5fa','#a78bfa','#4ade80','#f87171',
+];
+let charColorMap = {}, colorIdx = 0;
+function colorFor(ch) {
+  if (!charColorMap[ch]) charColorMap[ch] = PALETTE[colorIdx++ % PALETTE.length];
+  return charColorMap[ch];
+}
+
+// ─────────────────────────────────────────
+//  State
+// ─────────────────────────────────────────
+let str     = 'oidbcaf';
+let pattern = 'abc';
+let steps   = [], currentStep = -1, playing = false, timer = null;
+
+const SPEEDS = {1:1800,2:1200,3:750,4:380,5:150};
+const SPEED_LABELS = {1:'Slow',2:'Relaxed',3:'Normal',4:'Fast',5:'Turbo'};
+
+// ─────────────────────────────────────────
+//  DOM Build
+// ─────────────────────────────────────────
+function buildDOM() {
+  charColorMap = {}; colorIdx = 0;
+
+  // pattern cells
+  const patCells = document.getElementById('patternCells');
+  patCells.innerHTML = '';
+  [...pattern].forEach(ch => {
+    const cell = document.createElement('div');
+    cell.className = 'pat-cell';
+    cell.textContent = ch;
+    cell.style.borderColor = colorFor(ch);
+    cell.style.color = colorFor(ch);
+    cell.style.background = colorFor(ch) + '22';
+    patCells.appendChild(cell);
+  });
+
+  // string cells
+  const row  = document.getElementById('stringRow');
+  const brRow= document.getElementById('bracketRow');
+  row.innerHTML = ''; brRow.innerHTML = '';
+
+  [...str].forEach((ch, i) => {
+    const col  = document.createElement('div'); col.className = 'char-col';
+    const idx  = document.createElement('div'); idx.className = 'char-idx'; idx.textContent = i;
+    const cell = document.createElement('div');
+    cell.className = 'char-cell default';
+    cell.id = `cell-${i}`;
+
+    const lbl  = document.createElement('div'); lbl.className = 'ch-lbl'; lbl.textContent = ch;
+    const role = document.createElement('div'); role.className = 'ch-role'; role.id = `role-${i}`;
+    cell.append(lbl, role);
+    col.append(idx, cell);
+    row.appendChild(col);
+
+    const bc = document.createElement('div'); bc.className = 'bracket-cell';
+    const bl = document.createElement('div'); bl.className = 'bracket-line'; bl.id = `brk-${i}`;
+    bc.appendChild(bl); brRow.appendChild(bc);
+  });
+
+  buildMatchDots();
+  document.getElementById('iTarget').textContent = buildInitialFreq().distinct;
+}
+
+function buildInitialFreq() {
+  const freq = {};
+  [...pattern].forEach(ch => { freq[ch] = (freq[ch] || 0) + 1; });
+  return { freq, distinct: Object.keys(freq).length };
+}
+
+function buildMatchDots() {
+  const { distinct } = buildInitialFreq();
+  const dots = document.getElementById('mcDots');
+  dots.innerHTML = '';
+  for (let i = 0; i < distinct; i++) {
+    const d = document.createElement('div');
+    d.className = 'mc-dot needed-dot';
+    d.id = `mcdot-${i}`;
+    d.textContent = '?';
+    dots.appendChild(d);
+  }
+}
+
+// ─────────────────────────────────────────
+//  Step Builder
+// ─────────────────────────────────────────
+function buildSteps() {
+  const frames = [];
+  const initFreq = {};
+  [...pattern].forEach(ch => { initFreq[ch] = (initFreq[ch] || 0) + 1; });
+  const distinct = Object.keys(initFreq).length;
+
+  const freq = { ...initFreq };
+  let isMatch   = 0;
+  let windowStart = 0;
+  let foundAt = -1;
+
+  for (let windowEnd = 0; windowEnd < str.length; windowEnd++) {
+    const endChar  = str[windowEnd];
+    const inPat    = endChar in freq;
+    let   matched  = false;
+    let   isFound  = false;
+
+    if (inPat) {
+      freq[endChar]--;
+      if (freq[endChar] === 0) { isMatch++; matched = true; }
+    }
+
+    if (isMatch === distinct) { isFound = true; foundAt = windowStart; }
+
+    // build event for this step
+    frames.push({
+      windowStart, windowEnd,
+      freq: snap(freq),
+      isMatch, distinct,
+      endChar, inPat, matched,
+      isFound, foundAt: isFound ? windowStart : -1,
+      leavingChar: '', leavingIdx: -1,
+      putBack: false, unmatch: false,
+      phase: isFound ? 'found' : (matched ? 'match' : inPat ? 'slide-in-pat' : 'slide-not-pat'),
+      log: buildLog(windowEnd, endChar, inPat, matched, isMatch, distinct, isFound, windowStart, false, '', false)
+    });
+
+    if (isFound) break; // found — stop
+
+    // shrink when window reaches pattern length
+    if (windowEnd >= pattern.length - 1) {
+      const startChar = str[windowStart];
+      const startInPat = startChar in freq;
+      let putBack = false, unmatch = false;
+
+      if (startInPat) {
+        if (freq[startChar] === 0) { isMatch--; unmatch = true; }
+        freq[startChar]++;
+        putBack = true;
+      }
+      windowStart++;
+
+      frames.push({
+        windowStart, windowEnd,
+        freq: snap(freq),
+        isMatch, distinct,
+        endChar: startChar, inPat: startInPat,
+        matched: false, isFound: false, foundAt: -1,
+        leavingChar: startChar, leavingIdx: windowStart - 1,
+        putBack, unmatch,
+        phase: 'back',
+        log: buildLog(windowEnd, startChar, startInPat, false, isMatch, distinct, false, windowStart, true, startChar, unmatch)
+      });
+    }
+  }
+  return frames;
+}
+
+function snap(m) { const o={}; for(const[k,v] of Object.entries(m)) o[k]=v; return o; }
+
+function buildLog(we, ch, inPat, matched, isMatch, distinct, found, ws, isShrink, startChar, unmatch) {
+  if (found) {
+    return `<span class="log-found">🎉 PERMUTATION FOUND!</span> Window "${str.slice(ws, ws + pattern.length)}" is a permutation of "${pattern}". isMatch (${isMatch}) === distinct (${distinct}).`;
+  }
+  if (isShrink) {
+    const parts = [`<span class="log-back">← SLIDE:</span> Remove <strong>'${startChar}'</strong> from left.`];
+    if (!inPat) parts.push(`Not in pattern — no effect on map.`);
+    else if (unmatch) parts.push(`Was fully matched (freq=0) → <span class="log-back">isMatch ↓ to ${isMatch}</span>, then freq['${startChar}']++.`);
+    else parts.push(`Freq['${startChar}']++ (put back).`);
+    return parts.join(' ');
+  }
+  const parts = [`<span class="log-slide">→ Add</span> <strong>'${ch}'</strong> [${we}].`];
+  if (!inPat) {
+    parts.push(`<span class="log-skip">Not in pattern — skip.</span>`);
+  } else if (matched) {
+    parts.push(`In pattern! freq['${ch}'] → 0. <span class="log-match">isMatch ↑ to ${isMatch}.</span>`);
+  } else {
+    parts.push(`In pattern. freq['${ch}'] decremented.`);
+  }
+  if (!found && isMatch === distinct && !isShrink) {
+    // shouldn't happen without found=true, but safety
+  }
+  return parts.join(' ');
+}
+
+// ─────────────────────────────────────────
+//  Frame Renderer
+// ─────────────────────────────────────────
+function applyFrame(f) {
+  const { windowStart, windowEnd, freq, isMatch, distinct,
+          endChar, inPat, matched, isFound, foundAt,
+          leavingChar, leavingIdx, putBack, unmatch, phase } = f;
+
+  // reset cells
+  [...str].forEach((_, i) => {
+    const c = document.getElementById(`cell-${i}`);
+    c.className = 'char-cell default';
+    c.style.background = c.style.borderColor = c.style.color = c.style.boxShadow = '';
+    document.getElementById(`role-${i}`).textContent = '';
+    const b = document.getElementById(`brk-${i}`);
+    if (b) b.className = 'bracket-line';
+  });
+
+  const { freq: initFreq } = buildInitialFreq();
+
+  if (isFound) {
+    // highlight the entire found window in purple
+    for (let i = windowStart; i <= windowEnd; i++) {
+      const c = document.getElementById(`cell-${i}`);
+      c.className = 'char-cell in-found';
+      c.style.background = c.style.borderColor = c.style.color = c.style.boxShadow = '';
+      document.getElementById(`role-${i}`).textContent = '✓';
+      const b = document.getElementById(`brk-${i}`);
+      if (b) b.className = 'bracket-line v found';
+    }
+  } else {
+    // current window coloring
+    for (let i = windowStart; i <= windowEnd; i++) {
+      const c = document.getElementById(`cell-${i}`);
+      const b = document.getElementById(`brk-${i}`);
+      const ch = str[i];
+      const isInPat = ch in initFreq;
+      const isFullyMatched = isInPat && (freq[ch] !== undefined ? freq[ch] === 0 : false);
+
+      if (i === leavingIdx && phase === 'back') {
+        c.className = 'char-cell leaving';
+        document.getElementById(`role-${i}`).textContent = putBack ? '↩ put back' : '← out';
+      } else if (isFullyMatched) {
+        c.className = 'char-cell matched';
+        document.getElementById(`role-${i}`).textContent = '✓ matched';
+      } else if (isInPat) {
+        c.className = 'char-cell in-win';
+        document.getElementById(`role-${i}`).textContent = 'in map';
+      } else {
+        c.className = 'char-cell not-in-pat';
+        document.getElementById(`role-${i}`).textContent = '∉ pat';
+      }
+      c.style.background = c.style.borderColor = c.style.color = c.style.boxShadow = '';
+      if (b) b.className = `bracket-line v${phase === 'back' ? ' back' : ''}`;
+    }
+  }
+
+  // faded past
+  const fStart = phase === 'back' ? windowStart : windowStart;
+  for (let i = 0; i < (phase === 'back' ? windowStart - 1 : windowStart); i++) {
+    const c = document.getElementById(`cell-${i}`);
+    if (!c.className.includes('leaving')) {
+      c.className = 'char-cell done';
+      c.style.background = c.style.borderColor = c.style.color = c.style.boxShadow = '';
+    }
+    const b = document.getElementById(`brk-${i}`);
+    if (b && !b.className.includes('v')) b.className = 'bracket-line';
+  }
+
+  // phase banner
+  const banner = document.getElementById('phaseBanner');
+  const ptext  = document.getElementById('phaseText');
+  if (isFound) {
+    banner.className = 'phase-banner ph-found';
+    ptext.textContent = `🎉 FOUND! Window "${str.slice(windowStart, windowEnd + 1)}" is a permutation of "${pattern}"`;
+  } else if (phase === 'back') {
+    banner.className = 'phase-banner ph-back';
+    ptext.textContent = `← SLIDE: Remove '${leavingChar}' from left${unmatch ? ' — isMatch ↓' : putBack ? ' — freq restored' : ' (not in pattern)'}`;
+  } else if (matched) {
+    banner.className = 'phase-banner ph-match';
+    ptext.textContent = `✓ MATCH: '${endChar}' fully matched! isMatch ↑ to ${isMatch} / ${distinct}`;
+  } else {
+    banner.className = 'phase-banner ph-slide';
+    ptext.textContent = `→ ADD: '${endChar}' at [${windowEnd}]${inPat ? ' — in pattern, freq decremented' : ' — not in pattern, skip'}`;
+  }
+
+  // found banner
+  document.getElementById('foundBanner').className = isFound ? 'found-banner visible' : 'found-banner';
+  if (isFound) {
+    document.getElementById('foundSub').textContent =
+      `"${str.slice(windowStart, windowEnd + 1)}" is a permutation of "${pattern}"`;
+  }
+
+  // freq map
+  renderFreqMap(freq, initFreq, endChar, phase === 'back' ? leavingChar : endChar, phase);
+
+  // isMatch counter
+  renderMatchCounter(isMatch, distinct, isFound);
+
+  // info
+  document.getElementById('iStart').textContent = windowStart;
+  document.getElementById('iEnd').textContent   = windowEnd;
+  document.getElementById('iWin').textContent   = `"${str.slice(windowStart, windowEnd + 1)}"`;
+  document.getElementById('iMatch').textContent = isMatch;
+  document.getElementById('iMatch').style.color = isMatch === distinct ? 'var(--found)' : isMatch > 0 ? '#fde68a' : '#f1f5f9';
+  document.getElementById('iTarget').textContent= distinct;
+  document.getElementById('iStep').textContent  = `${currentStep + 1} / ${steps.length}`;
+  document.getElementById('stepLog').innerHTML  = f.log;
+}
+
+function renderFreqMap(freq, initFreq, currentChar, activeChar, phase) {
+  const container = document.getElementById('freqEntries');
+  container.innerHTML = '';
+  const maxFreq = Math.max(...Object.values(initFreq), 1);
+
+  for (const [ch, initCnt] of Object.entries(initFreq)) {
+    const cnt = freq[ch] !== undefined ? freq[ch] : initCnt;
+    const col  = colorFor(ch);
+    const entry = document.createElement('div');
+
+    if (cnt === 0) {
+      entry.className = 'freq-entry matched-entry';
+    } else if (cnt < 0) {
+      entry.className = 'freq-entry over';
+    } else {
+      entry.className = 'freq-entry needed';
+    }
+
+    const charEl = document.createElement('div');
+    charEl.className = 'fe-char';
+    charEl.style.color = cnt === 0 ? 'var(--match)' : cnt < 0 ? 'var(--out)' : col;
+    charEl.textContent = ch;
+
+    const cntEl = document.createElement('div');
+    cntEl.className = 'fe-count';
+    cntEl.textContent = cnt === 0 ? '✓' : cnt;
+
+    const barWrap = document.createElement('div');
+    barWrap.className = 'fe-bar-wrap';
+    const bar = document.createElement('div');
+    bar.className = 'fe-bar';
+    bar.style.width = `${Math.max(0, (cnt / initCnt)) * 100}%`;
+    bar.style.background = cnt === 0 ? 'var(--match)' : col;
+    barWrap.appendChild(bar);
+
+    entry.append(charEl, cntEl, barWrap);
+    container.appendChild(entry);
+  }
+}
+
+function renderMatchCounter(isMatch, distinct, isFound) {
+  const counter  = document.getElementById('matchCounter');
+  const fraction = document.getElementById('mcFraction');
+  const bar      = document.getElementById('mcBar');
+  const note     = document.getElementById('mcNote');
+  const dots     = document.getElementById('mcDots');
+
+  counter.className = 'match-counter' + (isFound ? ' winning' : '');
+  fraction.className = 'mc-fraction ' + (isMatch === distinct ? 'done' : 'partial');
+  fraction.textContent = `${isMatch} / ${distinct}`;
+
+  const pct = distinct > 0 ? (isMatch / distinct) * 100 : 0;
+  bar.style.width = pct + '%';
+  bar.style.background = isMatch === distinct ? 'var(--found)' : isMatch > 0 ? 'var(--need)' : 'var(--bord2)';
+
+  // update dots
+  const { freq: initFreq } = buildInitialFreq();
+  const keys = Object.keys(initFreq);
+  dots.innerHTML = '';
+  keys.forEach((ch, i) => {
+    const d = document.createElement('div');
+    // We can't directly know if this specific char is matched from isMatch alone
+    // Use the freq map passed via global — we'll use the rendered state
+    const freqEntry = document.querySelector(`.freq-entry.matched-entry .fe-char`);
+    d.className = 'mc-dot needed-dot';
+    d.id = `mcdot-${i}`;
+    d.style.borderColor = colorFor(ch);
+    d.style.color = colorFor(ch);
+    d.textContent = ch;
+    dots.appendChild(d);
+  });
+
+  note.textContent = isFound
+    ? '✓ All distinct pattern chars fully matched — permutation found!'
+    : `${isMatch} of ${distinct} distinct pattern chars are fully matched (freq = 0).`;
+}
+
+// ─────────────────────────────────────────
+//  Playback
+// ─────────────────────────────────────────
+function playPause() {
+  if (playing) { clearInterval(timer); playing = false; setBtnPlay(false); }
+  else {
+    if (currentStep >= steps.length - 1) resetAnim();
+    playing = true; setBtnPlay(true);
+    advance(); timer = setInterval(advance, getDelay());
+  }
+}
+function advance() {
+  if (currentStep < steps.length - 1) { currentStep++; applyFrame(steps[currentStep]); }
+  else {
+    clearInterval(timer); playing = false; setBtnPlay(false);
+    const f = steps[steps.length - 1];
+    const ans = f.isFound;
+    document.getElementById('stepLog').innerHTML +=
+      ` <span class="log-done">✓ Answer = ${ans}</span>`;
+    if (!ans) {
+      document.getElementById('phaseBanner').className = 'phase-banner ph-slide';
+      document.getElementById('phaseText').textContent =
+        `Done — no permutation of "${pattern}" found in "${str}"`;
+    }
+  }
+}
+function stepFwd() {
+  if (playing) { clearInterval(timer); playing = false; setBtnPlay(false); }
+  if (currentStep < steps.length - 1) { currentStep++; applyFrame(steps[currentStep]); }
+}
+function resetAnim() {
+  clearInterval(timer); playing = false; setBtnPlay(false);
+  currentStep = -1; buildDOM();
+  ['iStart','iEnd','iWin'].forEach(id => document.getElementById(id).textContent = '–');
+  document.getElementById('iMatch').textContent = '0';
+  document.getElementById('iMatch').style.color = '#f1f5f9';
+  document.getElementById('iStep').textContent  = `0 / ${steps.length}`;
+  document.getElementById('stepLog').textContent = 'Press Play to start the animation.';
+  document.getElementById('freqEntries').innerHTML =
+    '<span style="font-size:.72rem;color:var(--bord2);">empty — will build from pattern</span>';
+  document.getElementById('foundBanner').className = 'found-banner';
+  document.getElementById('matchCounter').className = 'match-counter';
+  document.getElementById('mcFraction').textContent = `0 / ${buildInitialFreq().distinct}`;
+  document.getElementById('mcFraction').className = 'mc-fraction partial';
+  document.getElementById('mcBar').style.width = '0%';
+  document.getElementById('mcNote').textContent = 'Each distinct pattern char contributes 1 when its freq reaches 0.';
+  document.getElementById('phaseBanner').className = 'phase-banner ph-idle';
+  document.getElementById('phaseText').textContent = 'Ready — press Play to begin';
+}
+function setBtnPlay(p) {
+  const btn = document.getElementById('btnPlay');
+  btn.className   = p ? 'btn btn-pause' : 'btn btn-play';
+  btn.textContent = p ? '⏸ Pause' : '▶ Play';
+}
+function getDelay() { return SPEEDS[document.getElementById('speedRange').value] || 750; }
+function onSpeedChange(v) {
+  document.getElementById('speedLabel').textContent = SPEED_LABELS[v];
+  if (playing) { clearInterval(timer); timer = setInterval(advance, getDelay()); }
+}
+
+// ─────────────────────────────────────────
+//  Config
+// ─────────────────────────────────────────
+function applyConfig() {
+  const s = document.getElementById('strInput').value.trim().replace(/\s/g,'');
+  const p = document.getElementById('patInput').value.trim().replace(/\s/g,'');
+  if (!s.length || !p.length || p.length > s.length) {
+    document.getElementById('stepLog').innerHTML =
+      '<span style="color:#fca5a5;">Pattern must be non-empty and ≤ string length.</span>';
+    return;
+  }
+  str = s; pattern = p; rebuildAll();
+}
+function loadEx(s, p) {
+  str = s; pattern = p;
+  document.getElementById('strInput').value = s;
+  document.getElementById('patInput').value = p;
+  rebuildAll();
+}
+function rebuildAll() { steps = buildSteps(); resetAnim(); }
+
+rebuildAll();
+</script>
+</body>
+</html>
