@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Longest Substring – K Distinct Characters</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0b0d17;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 2rem 1rem 5rem;
+    }
+
+    /* ── Header ── */
+    .header { text-align: center; margin-bottom: 2rem; }
+    .header h1 { font-size: 1.5rem; font-weight: 800; color: #f8fafc; letter-spacing: -0.02em; }
+    .header p  { color: #475569; font-size: 0.82rem; margin-top: 0.3rem; }
+    .header a  { color: #818cf8; text-decoration: none; font-size: 0.76rem; }
+    .header a:hover { text-decoration: underline; }
+    .badge { display:inline-block; padding:.18rem .65rem; border-radius:999px; font-size:.68rem;
+             font-weight:700; margin-left:.45rem; vertical-align:middle; }
+    .badge-purple { background:#3b0764; color:#d8b4fe; }
+
+    /* ── Card ── */
+    .card {
+      background: #12152a; border: 1px solid #1e2236;
+      border-radius: 16px; padding: 1.4rem 1.5rem;
+      margin-bottom: 1.3rem; max-width: 920px;
+      margin-left: auto; margin-right: auto;
+    }
+    .card-title { font-size:.68rem; font-weight:700; text-transform:uppercase;
+                  letter-spacing:.1em; color:#2d3460; margin-bottom:1rem; }
+
+    /* ── Controls ── */
+    .controls { display:flex; flex-wrap:wrap; align-items:center; gap:.6rem; }
+    label { font-size:.8rem; color:#94a3b8; }
+    input[type=number], input[type=text] {
+      background:#0b0d17; border:1px solid #1e2236;
+      border-radius:8px; color:#f1f5f9;
+      padding:.38rem .65rem; font-size:.8rem;
+    }
+    input[type=number] { width:65px; }
+    input[type=text]   { width:200px; font-family: monospace; font-size:.9rem; letter-spacing:.08em; }
+    input:focus { outline:2px solid #8b5cf6; outline-offset:2px; }
+
+    .btn { padding:.4rem 1rem; border-radius:8px; border:none;
+           font-size:.8rem; font-weight:600; cursor:pointer;
+           transition:opacity .15s, transform .1s; }
+    .btn:hover  { opacity:.85; transform:translateY(-1px); }
+    .btn:active { transform:none; }
+    .btn-primary { background:#8b5cf6; color:#fff; }
+    .btn-play    { background:#10b981; color:#fff; min-width:86px; }
+    .btn-pause   { background:#f59e0b; color:#000; min-width:86px; }
+    .btn-reset   { background:#151829; border:1px solid #252844; color:#64748b; }
+    .btn-step    { background:#151829; border:1px solid #252844; color:#64748b; }
+    .btn-ex      { background:#151829; border:1px solid #252844; color:#64748b; font-size:.72rem; }
+
+    .speed-row { display:flex; align-items:center; gap:.5rem; margin-top:.6rem; }
+    input[type=range] { accent-color:#8b5cf6; width:110px; }
+
+    /* ── Phase Banner ── */
+    .phase-banner {
+      display:flex; align-items:center; gap:.6rem;
+      padding:.45rem .85rem; border-radius:10px;
+      font-size:.77rem; font-weight:700;
+      margin-bottom:1.1rem; border:1px solid transparent;
+      transition:background .3s, border-color .3s, color .3s;
+    }
+    .phase-expand { background:#031a12; border-color:#059669; color:#6ee7b7; }
+    .phase-shrink { background:#200a3a; border-color:#7c3aed; color:#c4b5fd; }
+    .phase-idle   { background:#0f1117; border-color:#1e293b; color:#334155; }
+    .phase-dot    { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+    .phase-expand .phase-dot { background:#10b981; box-shadow:0 0 6px #10b981; }
+    .phase-shrink .phase-dot { background:#8b5cf6; box-shadow:0 0 6px #8b5cf6; }
+    .phase-idle   .phase-dot { background:#374151; }
+
+    /* ── String display ── */
+    .string-wrap { overflow-x:auto; padding-bottom:.4rem; }
+    .string-scene { display:flex; flex-direction:column; gap:4px; min-width:max-content; }
+    .string-row   { display:flex; align-items:flex-end; gap:5px; }
+    .char-col     { display:flex; flex-direction:column; align-items:center; gap:3px; }
+    .char-idx     { font-size:.6rem; color:#252844; font-weight:600; }
+
+    .char-cell {
+      width:48px; height:52px; border-radius:10px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:1.3rem; font-weight:800; font-family:monospace;
+      border:2px solid transparent; position:relative;
+      transition:background .2s, border-color .2s, transform .2s, box-shadow .2s;
+    }
+
+    /* cell color states */
+    .char-cell.default  { background:#12152a; border-color:#1e2236; color:#2d3460; }
+    .char-cell.expand   { background:#072316; border-color:#10b981; color:#6ee7b7; transform:translateY(-5px);
+                          box-shadow:0 6px 18px rgba(16,185,129,.2); }
+    .char-cell.shrink   { background:#1a0830; border-color:#8b5cf6; color:#c4b5fd; transform:translateY(-5px);
+                          box-shadow:0 6px 18px rgba(139,92,246,.2); }
+    .char-cell.leaving  { background:#3b0f0f; border-color:#ef4444; color:#fca5a5; transform:translateY(2px); }
+    .char-cell.done     { background:#0b0d17; border-color:#0f1117; color:#1e2236; }
+    .char-cell.best-win { background:#0d1f3c; border-color:#3b82f6; color:#93c5fd; transform:translateY(-5px);
+                          box-shadow:0 6px 20px rgba(59,130,246,.22); }
+
+    /* colour dot on cell – unique per character */
+    .char-dot {
+      position:absolute; top:5px; right:5px;
+      width:7px; height:7px; border-radius:50%;
+    }
+
+    /* bracket */
+    .bracket-row { display:flex; gap:5px; min-width:max-content; }
+    .bracket-cell { width:48px; height:7px; display:flex; align-items:center; }
+    .bracket-line { height:3px; width:100%; border-radius:2px; opacity:0;
+                    transition:opacity .2s, background .2s; }
+    .bracket-line.visible        { opacity:1; background:#10b981; }
+    .bracket-line.visible.shrink { background:#8b5cf6; }
+    .bracket-line.visible.best   { background:#3b82f6; }
+
+    /* ── HashMap panel ── */
+    .map-panel {
+      background:#0b0d17; border:1px solid #1a1d30;
+      border-radius:12px; padding:1rem 1.1rem; margin-top:1rem;
+    }
+    .map-title { font-size:.65rem; font-weight:700; text-transform:uppercase;
+                 letter-spacing:.09em; color:#252844; margin-bottom:.75rem;
+                 display:flex; justify-content:space-between; align-items:center; }
+    .map-distinct {
+      font-size:.7rem; font-weight:700; padding:.15rem .55rem;
+      border-radius:999px;
+    }
+    .map-distinct.ok      { background:#052e16; color:#86efac; border:1px solid #166534; }
+    .map-distinct.over    { background:#450a0a; color:#fca5a5; border:1px solid #991b1b; }
+
+    .map-entries { display:flex; flex-wrap:wrap; gap:.5rem; min-height:38px; }
+
+    .map-entry {
+      display:flex; align-items:center; gap:.4rem;
+      padding:.3rem .65rem; border-radius:8px;
+      border:1px solid transparent;
+      font-size:.82rem; font-weight:700; font-family:monospace;
+      transition:background .2s, border-color .2s, transform .15s;
+    }
+    .map-entry.active   { transform:scale(1.07); }
+    .map-entry.removing { opacity:.4; border-style:dashed; }
+
+    .map-char { font-size:1rem; }
+    .map-freq {
+      background:#0f1117; border-radius:5px;
+      padding:.1rem .35rem; font-size:.75rem; color:#e2e8f0;
+    }
+    .map-bar-mini {
+      height:3px; width:100%; border-radius:2px; margin-top:3px;
+      transition:width .25s;
+    }
+
+    /* ── Info grid ── */
+    .info-grid {
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(115px,1fr));
+      gap:.6rem; margin-top:1rem;
+    }
+    .info-box { background:#0b0d17; border:1px solid #1a1d30;
+                border-radius:10px; padding:.65rem .85rem; text-align:center; }
+    .info-label { font-size:.6rem; text-transform:uppercase; letter-spacing:.08em; color:#252844; margin-bottom:.22rem; }
+    .info-val   { font-size:1.25rem; font-weight:700; color:#f1f5f9; font-variant-numeric:tabular-nums; }
+    .info-val.green  { color:#6ee7b7; }
+    .info-val.purple { color:#c4b5fd; }
+    .info-val.blue   { color:#93c5fd; }
+    .info-val.yellow { color:#fde68a; }
+
+    /* ── Best window strip ── */
+    .best-strip {
+      display:flex; align-items:center; gap:.75rem;
+      background:#0d1f3c; border:1px solid #1e3a5f;
+      border-radius:11px; padding:.8rem 1rem; margin-top:1rem;
+      transition:background .3s, border-color .3s;
+    }
+    .best-strip.new { background:#072316; border-color:#166534; }
+    .best-label { font-size:.7rem; color:#1e3a5f; white-space:nowrap; }
+    .best-strip.new .best-label { color:#166534; }
+    .best-chars { flex:1; font-family:monospace; font-size:1.15rem; font-weight:800;
+                  letter-spacing:.12em; color:#93c5fd; }
+    .best-len { font-size:1.6rem; font-weight:800; color:#3b82f6; }
+
+    /* ── Step log ── */
+    .step-log {
+      background:#080a14; border:1px solid #12152a;
+      border-radius:10px; padding:.8rem 1rem;
+      font-size:.79rem; line-height:1.65; color:#475569;
+      min-height:64px; max-height:120px; overflow-y:auto; margin-top:1rem;
+    }
+    .log-expand { color:#6ee7b7; font-weight:600; }
+    .log-shrink { color:#c4b5fd; font-weight:600; }
+    .log-best   { color:#93c5fd; font-weight:700; }
+    .log-hi     { color:#a5b4fc; }
+    .log-map    { color:#fde68a; font-weight:600; font-family:monospace; }
+    .log-done   { color:#22c55e; font-weight:700; }
+
+    /* ── Playback ── */
+    .playback-row { display:flex; flex-wrap:wrap; gap:.55rem; margin-top:1.1rem; align-items:center; }
+
+    /* ── Legend ── */
+    .legend { display:flex; flex-wrap:wrap; gap:.65rem; margin-top:.9rem; }
+    .legend-item { display:flex; align-items:center; gap:.35rem; font-size:.71rem; color:#334155; }
+    .legend-dot  { width:10px; height:10px; border-radius:3px; flex-shrink:0; }
+
+    /* ── Complexity ── */
+    .complexity-row { display:flex; gap:.7rem; flex-wrap:wrap; margin-top:.65rem; }
+    .complexity-badge {
+      display:inline-flex; align-items:center; gap:.4rem;
+      padding:.28rem .75rem; border-radius:999px;
+      font-size:.73rem; font-weight:700;
+    }
+    .badge-time  { background:#052e16; border:1px solid #166534; color:#86efac; }
+    .badge-space { background:#200a3a; border:1px solid #4c1d95; color:#c4b5fd; }
+    .badge-dot   { width:7px; height:7px; border-radius:50%; }
+    .badge-time  .badge-dot { background:#22c55e; }
+    .badge-space .badge-dot { background:#8b5cf6; }
+
+    .insight { background:#0b0d17; border-left:3px solid #8b5cf6;
+               border-radius:0 10px 10px 0; padding:.8rem 1rem;
+               margin-top:.75rem; font-size:.79rem; color:#475569; line-height:1.6; }
+
+    ::-webkit-scrollbar { width:5px; height:5px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:#1e2236; border-radius:3px; }
+
+    @media (max-width:520px) {
+      .char-cell { width:38px; height:44px; font-size:1rem; }
+      .bracket-cell { width:38px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1>Longest Substring with K Distinct Characters
+    <span class="badge badge-purple">HashMap</span>
+  </h1>
+  <p>Dynamic Sliding Window + Character Frequency Map · Step-by-step</p>
+  <a href="https://leetcode.com/problems/longest-substring-with-at-most-k-distinct-characters/" target="_blank">↗ LeetCode #340</a>
+</div>
+
+<!-- Config -->
+<div class="card">
+  <div class="card-title">Configuration</div>
+  <div class="controls">
+    <label>String</label>
+    <input type="text" id="strInput" value="araaci"/>
+    <label>K</label>
+    <input type="number" id="kInput" value="2" min="1" max="26"/>
+    <button class="btn btn-primary" onclick="applyConfig()">Apply</button>
+  </div>
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.55rem;">
+    <button class="btn btn-ex" onclick="loadEx(0)">"araaci" K=2 → 4</button>
+    <button class="btn btn-ex" onclick="loadEx(1)">"araaci" K=1 → 2</button>
+    <button class="btn btn-ex" onclick="loadEx(2)">"cbbebi" K=3 → 5</button>
+  </div>
+  <div class="speed-row">
+    <label>Speed</label>
+    <input type="range" id="speedRange" min="1" max="5" value="3" oninput="onSpeedChange(this.value)"/>
+    <span id="speedLabel" style="font-size:.73rem;color:#252844;">Normal</span>
+  </div>
+</div>
+
+<!-- Visualizer -->
+<div class="card">
+  <!-- Phase banner -->
+  <div class="phase-banner phase-idle" id="phaseBanner">
+    <div class="phase-dot"></div>
+    <span id="phaseText">Ready — press Play to begin</span>
+  </div>
+
+  <!-- String display -->
+  <div class="string-wrap">
+    <div class="string-scene">
+      <div class="string-row"  id="stringRow"></div>
+      <div class="bracket-row" id="bracketRow"></div>
+    </div>
+  </div>
+
+  <!-- HashMap -->
+  <div class="map-panel">
+    <div class="map-title">
+      <span>charFrequency HashMap</span>
+      <span class="map-distinct ok" id="distinctBadge">0 / K=2 distinct</span>
+    </div>
+    <div class="map-entries" id="mapEntries">
+      <span style="font-size:.72rem;color:#252844;">empty</span>
+    </div>
+  </div>
+
+  <!-- Info grid -->
+  <div class="info-grid">
+    <div class="info-box">
+      <div class="info-label">Window Start</div>
+      <div class="info-val purple" id="iStart">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Window End</div>
+      <div class="info-val green" id="iEnd">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Window Size</div>
+      <div class="info-val yellow" id="iSize">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Distinct Chars</div>
+      <div class="info-val" id="iDistinct">0</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Max Length</div>
+      <div class="info-val blue" id="iMax">0</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Step</div>
+      <div class="info-val" id="iStep">0 / 0</div>
+    </div>
+  </div>
+
+  <!-- Best window strip -->
+  <div class="best-strip" id="bestStrip">
+    <div class="best-label">Longest window found</div>
+    <div class="best-chars" id="bestChars">–</div>
+    <div class="best-len" id="bestLen">0</div>
+  </div>
+
+  <!-- Log -->
+  <div class="step-log" id="stepLog">Press <strong>Play</strong> to start the animation.</div>
+
+  <!-- Playback -->
+  <div class="playback-row">
+    <button class="btn btn-play" id="btnPlay" onclick="playPause()">▶ Play</button>
+    <button class="btn btn-reset" onclick="resetAnim()">↺ Reset</button>
+    <button class="btn btn-step"  onclick="stepFwd()">Step →</button>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div> Expanding (distinct ≤ K)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6"></div> Shrinking (distinct > K)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div> Leaving window</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div> Best window</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#0f1117"></div> Processed</div>
+  </div>
+</div>
+
+<!-- Complexity + Insight -->
+<div class="card">
+  <div class="card-title">Complexity & Key Insight</div>
+
+  <div class="complexity-row">
+    <div class="complexity-badge badge-time"><div class="badge-dot"></div> O(N) time</div>
+    <div class="complexity-badge badge-space"><div class="badge-dot"></div> O(K) space — at most K+1 entries in HashMap</div>
+  </div>
+
+  <div class="insight" style="margin-top:.9rem;">
+    <strong style="color:#c4b5fd;">Why a HashMap?</strong>
+    Unlike the previous problems where we tracked a numeric sum, here we need to know
+    <em>which</em> characters are in the window and <em>how many</em> times each appears.
+    The HashMap lets us add/remove characters in O(1) and instantly check the distinct count
+    via <span class="log-map">Object.keys(charFrequency).length</span>.
+    When a character's frequency drops to 0 we delete it from the map — that's what keeps the
+    distinct count accurate.
+  </div>
+
+  <div class="insight" style="border-color:#10b981; margin-top:.6rem;">
+    <strong style="color:#6ee7b7;">Why still O(N)?</strong>
+    The outer for-loop moves <code>windowEnd</code> forward N times.
+    The inner while-loop moves <code>windowStart</code> forward — but only as far as
+    <code>windowEnd</code> has already moved. Each character is added once and removed at most once,
+    so total iterations across both loops ≤ 2N → <strong>O(N)</strong>.
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────
+//  Palette — unique color per unique char
+// ─────────────────────────────────────────
+const CHAR_COLORS = [
+  '#f472b6','#fb923c','#facc15','#4ade80','#34d399',
+  '#22d3ee','#60a5fa','#a78bfa','#e879f9','#f87171',
+];
+let charColorMap = {};
+let colorIdx = 0;
+
+function colorFor(ch) {
+  if (!charColorMap[ch]) {
+    charColorMap[ch] = CHAR_COLORS[colorIdx % CHAR_COLORS.length];
+    colorIdx++;
+  }
+  return charColorMap[ch];
+}
+
+// ─────────────────────────────────────────
+//  State
+// ─────────────────────────────────────────
+let str  = 'araaci';
+let K    = 2;
+
+let steps       = [];
+let currentStep = -1;
+let playing     = false;
+let timer       = null;
+
+const SPEEDS = {1:1700,2:1100,3:680,4:330,5:140};
+const SPEED_LABELS = {1:'Slow',2:'Relaxed',3:'Normal',4:'Fast',5:'Turbo'};
+const EXAMPLES = [
+  {str:'araaci',k:2}, {str:'araaci',k:1}, {str:'cbbebi',k:3}
+];
+
+// ─────────────────────────────────────────
+//  DOM Build
+// ─────────────────────────────────────────
+function buildDOM() {
+  charColorMap = {}; colorIdx = 0;
+
+  const row  = document.getElementById('stringRow');
+  const brRow= document.getElementById('bracketRow');
+  row.innerHTML = ''; brRow.innerHTML = '';
+
+  [...str].forEach((ch, i) => {
+    const col = document.createElement('div');
+    col.className = 'char-col';
+
+    const idx = document.createElement('div');
+    idx.className = 'char-idx';
+    idx.textContent = i;
+
+    const cell = document.createElement('div');
+    cell.className = 'char-cell default';
+    cell.id = `char-${i}`;
+
+    const letter = document.createElement('span');
+    letter.textContent = ch;
+    letter.style.position = 'relative';
+    letter.style.zIndex = '1';
+    cell.appendChild(letter);
+
+    const dot = document.createElement('div');
+    dot.className = 'char-dot';
+    dot.style.background = colorFor(ch);
+    cell.appendChild(dot);
+
+    col.append(idx, cell);
+    row.appendChild(col);
+
+    const bc = document.createElement('div');
+    bc.className = 'bracket-cell';
+    const bl = document.createElement('div');
+    bl.className = 'bracket-line';
+    bl.id = `bracket-${i}`;
+    bc.appendChild(bl);
+    brRow.appendChild(bc);
+  });
+
+  document.getElementById('distinctBadge').textContent = `0 / K=${K} distinct`;
+}
+
+// ─────────────────────────────────────────
+//  Step Builder
+// ─────────────────────────────────────────
+function buildSteps() {
+  const frames = [];
+  let windowStart = 0;
+  let maxLength   = 0;
+  let bestStart   = -1;
+  let bestEnd     = -1;
+  const freq = {};
+
+  for (let windowEnd = 0; windowEnd < str.length; windowEnd++) {
+    const endChar = str[windowEnd];
+    freq[endChar] = (freq[endChar] || 0) + 1;
+
+    // EXPAND frame
+    const freqSnap1 = snapFreq(freq);
+    const distinct1 = Object.keys(freq).length;
+    frames.push({
+      windowStart, windowEnd,
+      freq: freqSnap1, distinct: distinct1,
+      maxLength, bestStart, bestEnd,
+      phase: 'expand', leavingIdx: -1, leavingChar: '',
+      isNewBest: false,
+      log: buildExpandLog(windowEnd, endChar, freq, distinct1, K)
+    });
+
+    // SHRINK loop
+    while (Object.keys(freq).length > K) {
+      const startChar = str[windowStart];
+      freq[startChar]--;
+      const removed = freq[startChar] === 0;
+      if (removed) delete freq[startChar];
+
+      const freqSnap2 = snapFreq(freq);
+      const distinct2 = Object.keys(freq).length;
+
+      frames.push({
+        windowStart, windowEnd,
+        freq: freqSnap2, distinct: distinct2,
+        maxLength, bestStart, bestEnd,
+        phase: 'shrink', leavingIdx: windowStart, leavingChar: startChar,
+        isNewBest: false,
+        log: buildShrinkLog(windowStart, startChar, freq, distinct2, K, removed)
+      });
+
+      windowStart++;
+    }
+
+    // record max after shrinking
+    const curLen  = windowEnd - windowStart + 1;
+    const isNewBest = curLen > maxLength;
+    if (isNewBest) { maxLength = curLen; bestStart = windowStart; bestEnd = windowEnd; }
+
+    // update last frame's isNewBest & log suffix if it was an expand (no shrink happened)
+    const last = frames[frames.length - 1];
+    last.maxLength = maxLength;
+    last.bestStart = bestStart;
+    last.bestEnd   = bestEnd;
+    last.isNewBest = isNewBest;
+    if (isNewBest) {
+      last.log += ` <span class="log-best">🏆 New max length = ${maxLength} ("${str.slice(bestStart, bestEnd + 1)}").</span>`;
+    }
+  }
+
+  return frames;
+}
+
+function snapFreq(freq) {
+  const out = {};
+  for (const [k, v] of Object.entries(freq)) out[k] = v;
+  return out;
+}
+
+function buildExpandLog(we, ch, freq, distinct, K) {
+  return `<span class="log-expand">EXPAND →</span> Added <span class="log-map">'${ch}'</span> → freq: <span class="log-map">${JSON.stringify(freq)}</span>. Distinct = <span class="log-hi">${distinct}</span>${distinct > K ? ` > K=${K}. <span class="log-shrink">Shrink!</span>` : ` ≤ K=${K}. Window valid.`}`;
+}
+
+function buildShrinkLog(ws, ch, freq, distinct, K, removed) {
+  const mapStr = Object.keys(freq).length ? JSON.stringify(freq) : '{}';
+  return `<span class="log-shrink">SHRINK ←</span> Removed <span class="log-map">'${ch}'</span>${removed ? ' (deleted from map)' : ' (decremented)'}. freq: <span class="log-map">${mapStr}</span>. Distinct = <span class="log-hi">${distinct}</span>${distinct <= K ? ` ≤ K=${K}. Window valid again.` : ` still > K=${K}.`}`;
+}
+
+// ─────────────────────────────────────────
+//  Frame Renderer
+// ─────────────────────────────────────────
+function applyFrame(f) {
+  // reset cells
+  [...str].forEach((_, i) => {
+    document.getElementById(`char-${i}`).className = 'char-cell default';
+    const b = document.getElementById(`bracket-${i}`);
+    if (b) b.className = 'bracket-line';
+  });
+
+  const { windowStart, windowEnd, freq, distinct, maxLength,
+          bestStart, bestEnd, phase, leavingIdx, isNewBest } = f;
+
+  // best window (blue)
+  if (bestStart >= 0) {
+    for (let i = bestStart; i <= bestEnd; i++) {
+      document.getElementById(`char-${i}`).className = 'char-cell best-win';
+      const b = document.getElementById(`bracket-${i}`);
+      if (b) b.className = 'bracket-line visible best';
+    }
+  }
+
+  // current window
+  for (let i = windowStart; i <= windowEnd; i++) {
+    const c = document.getElementById(`char-${i}`);
+    const b = document.getElementById(`bracket-${i}`);
+    if (phase === 'shrink' && i === leavingIdx) {
+      c.className = 'char-cell leaving';
+    } else if (phase === 'shrink') {
+      c.className = 'char-cell shrink';
+    } else {
+      c.className = 'char-cell expand';
+    }
+    if (b) b.className = `bracket-line visible${phase === 'shrink' ? ' shrink' : ''}`;
+  }
+
+  // faded past
+  for (let i = 0; i < windowStart; i++) {
+    const c = document.getElementById(`char-${i}`);
+    if (!c.className.includes('best-win')) c.className = 'char-cell done';
+    const b = document.getElementById(`bracket-${i}`);
+    if (b && !b.className.includes('best')) b.className = 'bracket-line';
+  }
+
+  // phase banner
+  const banner   = document.getElementById('phaseBanner');
+  const phaseText= document.getElementById('phaseText');
+  if (phase === 'expand') {
+    banner.className = 'phase-banner phase-expand';
+    phaseText.textContent = `EXPANDING → Added '${str[windowEnd]}' at index ${windowEnd}`;
+  } else {
+    banner.className = 'phase-banner phase-shrink';
+    phaseText.textContent = `SHRINKING ← Removing '${f.leavingChar}' at index ${leavingIdx}`;
+  }
+
+  // HashMap panel
+  renderMap(freq, distinct, f.leavingChar, phase);
+
+  // info
+  const curSize = windowEnd - windowStart + 1;
+  document.getElementById('iStart').textContent    = windowStart;
+  document.getElementById('iEnd').textContent      = windowEnd;
+  document.getElementById('iSize').textContent     = curSize;
+  document.getElementById('iDistinct').textContent = distinct;
+  document.getElementById('iDistinct').style.color = distinct > K ? '#fca5a5' : '#6ee7b7';
+  document.getElementById('iMax').textContent      = maxLength;
+  document.getElementById('iStep').textContent     = `${currentStep + 1} / ${steps.length}`;
+
+  // best strip
+  const strip = document.getElementById('bestStrip');
+  strip.className = 'best-strip' + (isNewBest ? ' new' : '');
+  document.getElementById('bestChars').textContent =
+    bestStart >= 0 ? `"${str.slice(bestStart, bestEnd + 1)}"` : '–';
+  document.getElementById('bestLen').textContent = maxLength || '0';
+
+  // log
+  document.getElementById('stepLog').innerHTML = f.log;
+}
+
+function renderMap(freq, distinct, leavingChar, phase) {
+  const container = document.getElementById('mapEntries');
+  const badge     = document.getElementById('distinctBadge');
+
+  badge.textContent = `${distinct} / K=${K} distinct`;
+  badge.className   = 'map-distinct ' + (distinct > K ? 'over' : 'ok');
+
+  if (Object.keys(freq).length === 0) {
+    container.innerHTML = '<span style="font-size:.72rem;color:#252844;">empty</span>';
+    return;
+  }
+
+  const maxFreq = Math.max(...Object.values(freq), 1);
+  container.innerHTML = '';
+
+  for (const [ch, cnt] of Object.entries(freq)) {
+    const color = colorFor(ch);
+    const entry = document.createElement('div');
+    entry.className = 'map-entry' +
+      (phase === 'shrink' && ch === leavingChar ? ' active' : '');
+    entry.style.background = color + '1a';
+    entry.style.borderColor = color + '55';
+
+    const charSpan = document.createElement('span');
+    charSpan.className = 'map-char';
+    charSpan.style.color = color;
+    charSpan.textContent = `'${ch}'`;
+
+    const colon = document.createElement('span');
+    colon.style.color = '#334155';
+    colon.textContent = ':';
+
+    const freqWrap = document.createElement('div');
+    freqWrap.style.display = 'flex';
+    freqWrap.style.flexDirection = 'column';
+    freqWrap.style.alignItems = 'center';
+    freqWrap.style.gap = '2px';
+
+    const freqSpan = document.createElement('span');
+    freqSpan.className = 'map-freq';
+    freqSpan.textContent = cnt;
+
+    const bar = document.createElement('div');
+    bar.className = 'map-bar-mini';
+    bar.style.background = color;
+    bar.style.width = `${(cnt / maxFreq) * 36}px`;
+
+    freqWrap.append(freqSpan, bar);
+    entry.append(charSpan, colon, freqWrap);
+    container.appendChild(entry);
+  }
+}
+
+// ─────────────────────────────────────────
+//  Playback
+// ─────────────────────────────────────────
+function playPause() {
+  if (playing) {
+    clearInterval(timer); playing = false; setBtnPlay(false);
+  } else {
+    if (currentStep >= steps.length - 1) resetAnim();
+    playing = true; setBtnPlay(true);
+    advance(); timer = setInterval(advance, getDelay());
+  }
+}
+
+function advance() {
+  if (currentStep < steps.length - 1) {
+    currentStep++; applyFrame(steps[currentStep]);
+  } else {
+    clearInterval(timer); playing = false; setBtnPlay(false);
+    const f = steps[steps.length - 1];
+    document.getElementById('stepLog').innerHTML +=
+      ` <span class="log-done">✓ Answer = ${f.maxLength}</span>`;
+    document.getElementById('phaseBanner').className = 'phase-banner phase-expand';
+    document.getElementById('phaseText').textContent =
+      `Done! Longest substring = "${str.slice(f.bestStart, f.bestEnd + 1)}" (length ${f.maxLength})`;
+  }
+}
+
+function stepFwd() {
+  if (playing) { clearInterval(timer); playing = false; setBtnPlay(false); }
+  if (currentStep < steps.length - 1) { currentStep++; applyFrame(steps[currentStep]); }
+}
+
+function resetAnim() {
+  clearInterval(timer); playing = false; setBtnPlay(false);
+  currentStep = -1;
+  buildDOM();
+  ['iStart','iEnd','iSize'].forEach(id => document.getElementById(id).textContent = '–');
+  document.getElementById('iDistinct').textContent = '0';
+  document.getElementById('iDistinct').style.color = '#6ee7b7';
+  document.getElementById('iMax').textContent  = '0';
+  document.getElementById('iStep').textContent = `0 / ${steps.length}`;
+  document.getElementById('stepLog').textContent = 'Press Play to start the animation.';
+  document.getElementById('mapEntries').innerHTML = '<span style="font-size:.72rem;color:#252844;">empty</span>';
+  document.getElementById('distinctBadge').textContent = `0 / K=${K} distinct`;
+  document.getElementById('distinctBadge').className = 'map-distinct ok';
+  document.getElementById('bestChars').textContent = '–';
+  document.getElementById('bestLen').textContent   = '0';
+  document.getElementById('bestStrip').className   = 'best-strip';
+  document.getElementById('phaseBanner').className = 'phase-banner phase-idle';
+  document.getElementById('phaseText').textContent = 'Ready — press Play to begin';
+}
+
+function setBtnPlay(p) {
+  const btn = document.getElementById('btnPlay');
+  btn.className   = p ? 'btn btn-pause' : 'btn btn-play';
+  btn.textContent = p ? '⏸ Pause' : '▶ Play';
+}
+function getDelay() { return SPEEDS[document.getElementById('speedRange').value] || 680; }
+function onSpeedChange(v) {
+  document.getElementById('speedLabel').textContent = SPEED_LABELS[v];
+  if (playing) { clearInterval(timer); timer = setInterval(advance, getDelay()); }
+}
+
+// ─────────────────────────────────────────
+//  Config
+// ─────────────────────────────────────────
+function applyConfig() {
+  const s = document.getElementById('strInput').value.trim().replace(/\s/g,'');
+  const k = parseInt(document.getElementById('kInput').value);
+  if (!s.length || isNaN(k) || k < 1 || k > s.length) {
+    document.getElementById('stepLog').innerHTML =
+      '<span style="color:#fca5a5;">Please enter a valid string and K (1 ≤ K ≤ string length).</span>';
+    return;
+  }
+  str = s; K = k; rebuildAll();
+}
+
+function loadEx(idx) {
+  const ex = EXAMPLES[idx];
+  str = ex.str; K = ex.k;
+  document.getElementById('strInput').value = str;
+  document.getElementById('kInput').value   = K;
+  rebuildAll();
+}
+
+function rebuildAll() {
+  steps = buildSteps();
+  resetAnim();
+}
+
+// ─────────────────────────────────────────
+//  Init
+// ─────────────────────────────────────────
+rebuildAll();
+</script>
+</body>
+</html>
