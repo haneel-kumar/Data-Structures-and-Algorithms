@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>String Anagrams – Sliding Window</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a;
+    --border: #2e3250; --text: #e2e8f0; --muted: #64748b;
+    --purple: #8b5cf6; --purple-dim: #3b2e6e; --purple-glow: rgba(139,92,246,.25);
+    --blue: #3b82f6; --blue-dim: #1e3a5f;
+    --green: #22c55e; --green-dim: #14532d; --green-glow: rgba(34,197,94,.25);
+    --amber: #f59e0b; --amber-dim: #78350f;
+    --red: #ef4444; --red-dim: #7f1d1d;
+    --cyan: #06b6d4; --cyan-dim: #164e63;
+    --best: #1d4ed8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+  /* ── Header ─────────────────────────────────────────────── */
+  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  .header h1 { font-size: 1.15rem; font-weight: 700; }
+  .header h1 span { color: var(--purple); }
+  .badge-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge { padding: 3px 10px; border-radius: 99px; font-size: .72rem; font-weight: 600; letter-spacing: .04em; }
+  .badge-hard { background: #3b0764; color: #d8b4fe; }
+  .badge-lc { background: var(--surface2); color: var(--muted); }
+  .badge-pat { background: var(--blue-dim); color: #93c5fd; }
+
+  /* ── Breadcrumb ─────────────────────────────────────────── */
+  .breadcrumb { padding: 10px 24px; display: flex; align-items: center; gap: 6px; font-size: .78rem; color: var(--muted); flex-wrap: wrap; }
+  .breadcrumb .crumb { padding: 3px 10px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border); }
+  .breadcrumb .crumb.active { background: var(--purple-dim); border-color: var(--purple); color: #c4b5fd; }
+  .breadcrumb .arrow { color: var(--border); }
+
+  /* ── Layout ─────────────────────────────────────────────── */
+  .main { max-width: 1100px; margin: 0 auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* ── Config ─────────────────────────────────────────────── */
+  .config-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; }
+  .config-card h3 { font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }
+  .config-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+  .config-field { display: flex; flex-direction: column; gap: 5px; }
+  .config-field label { font-size: .78rem; color: var(--muted); }
+  .config-field input { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 7px 11px; font-size: .9rem; width: 200px; font-family: monospace; }
+  .config-field input:focus { outline: none; border-color: var(--purple); }
+  .btn { padding: 8px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: .85rem; font-weight: 600; transition: opacity .15s; }
+  .btn:hover { opacity: .85; }
+  .btn-apply { background: var(--purple); color: #fff; }
+  .btn-ex { background: var(--surface2); color: var(--text); border: 1px solid var(--border); padding: 6px 12px; font-size: .78rem; }
+  .examples { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+
+  /* ── Diff strip ─────────────────────────────────────────── */
+  .diff-strip { background: var(--surface2); border: 1px solid var(--border); border-left: 3px solid var(--purple); border-radius: 10px; padding: 10px 16px; font-size: .8rem; color: #c4b5fd; }
+  .diff-strip strong { color: var(--purple); }
+
+  /* ── Pattern section ────────────────────────────────────── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media(max-width:700px){ .two-col { grid-template-columns:1fr; } }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; }
+  .card h3 { font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }
+
+  .pattern-chars { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .p-cell { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1rem; font-weight: 700; font-family: monospace; border: 2px solid transparent; }
+
+  /* ── Freq map ───────────────────────────────────────────── */
+  .freq-map { display: flex; gap: 8px; flex-wrap: wrap; }
+  .freq-entry { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .freq-char { width: 36px; height: 28px; border-radius: 6px 6px 0 0; display: flex; align-items: center; justify-content: center; font-size: .85rem; font-weight: 700; font-family: monospace; }
+  .freq-count { width: 36px; height: 26px; border-radius: 0 0 6px 6px; display: flex; align-items: center; justify-content: center; font-size: .85rem; font-weight: 700; background: var(--surface2); border: 1px solid var(--border); border-top: none; transition: background .2s, color .2s; }
+  .freq-count.zero { background: #14532d; color: #86efac; }
+  .freq-count.negative { background: var(--red-dim); color: #fca5a5; }
+
+  /* ── Match counter ──────────────────────────────────────── */
+  .match-panel { display: flex; flex-direction: column; gap: 10px; }
+  .match-row { display: flex; align-items: center; gap: 10px; }
+  .match-label { font-size: .8rem; color: var(--muted); min-width: 90px; }
+  .match-val { font-size: 1.4rem; font-weight: 800; color: var(--amber); }
+  .match-val.full { color: var(--green); }
+  .distinct-val { font-size: 1.4rem; font-weight: 800; color: var(--purple); }
+  .match-bar-wrap { height: 10px; background: var(--surface2); border-radius: 99px; overflow: hidden; flex: 1; }
+  .match-bar { height: 100%; border-radius: 99px; background: var(--amber); transition: width .3s, background .3s; }
+  .match-bar.full { background: var(--green); }
+
+  /* ── String display ─────────────────────────────────────── */
+  .str-wrap { overflow-x: auto; padding-bottom: 4px; }
+  .str-cells { display: flex; gap: 5px; min-width: max-content; }
+  .s-cell { width: 40px; height: 48px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 1rem; font-weight: 700; font-family: monospace; background: var(--surface2); border: 2px solid var(--border); transition: all .2s; position: relative; }
+  .s-cell .idx-label { font-size: .6rem; color: var(--muted); font-weight: 400; position: absolute; top: 3px; }
+  .s-cell .ch { margin-top: 6px; }
+  .s-cell.in-window { border-color: var(--purple); background: var(--purple-dim); }
+  .s-cell.in-best { border-color: var(--green); background: var(--green-dim); box-shadow: 0 0 8px var(--green-glow); }
+  .s-cell.window-start { border-color: var(--amber) !important; }
+  .s-cell.anagram-found { animation: foundPulse .5s ease-in-out; }
+  @keyframes foundPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.12)} }
+
+  /* ── Phase banner ───────────────────────────────────────── */
+  .phase-banner { padding: 8px 14px; border-radius: 8px; font-size: .82rem; font-weight: 700; letter-spacing: .05em; display: flex; align-items: center; gap: 8px; }
+  .phase-banner .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .ph-add    { background: #1e3a5f; color: #93c5fd; }
+  .ph-add    .dot { background: var(--blue); }
+  .ph-match  { background: #14532d; color: #86efac; }
+  .ph-match  .dot { background: var(--green); }
+  .ph-back   { background: var(--amber-dim); color: #fcd34d; }
+  .ph-back   .dot { background: var(--amber); animation: pulse 1s infinite; }
+  .ph-found  { background: #3b0764; color: #e9d5ff; }
+  .ph-found  .dot { background: var(--purple); animation: pulse 1s infinite; }
+  .ph-init   { background: var(--surface2); color: var(--muted); }
+  .ph-init   .dot { background: var(--muted); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* ── Pointer row ────────────────────────────────────────── */
+  .ptr-row { display: flex; gap: 5px; min-width: max-content; margin-top: 2px; }
+  .ptr-cell { width: 40px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: .65rem; font-weight: 700; color: transparent; }
+  .ptr-cell.show-s { color: var(--amber); }
+  .ptr-cell.show-e { color: var(--purple); }
+  .ptr-cell.show-both { color: var(--green); }
+
+  /* ── Results strip ──────────────────────────────────────── */
+  .results-section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; }
+  .results-section h3 { font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .results-count { background: var(--purple-dim); color: #c4b5fd; padding: 2px 8px; border-radius: 99px; font-size: .75rem; font-weight: 700; }
+  .results-chips { display: flex; gap: 8px; flex-wrap: wrap; min-height: 40px; align-items: center; }
+  .result-chip { background: var(--purple-dim); border: 2px solid var(--purple); border-radius: 8px; padding: 5px 12px; display: flex; flex-direction: column; align-items: center; gap: 2px; animation: chipIn .3s ease-out; }
+  @keyframes chipIn { from{opacity:0;transform:scale(.8) translateY(6px)} to{opacity:1;transform:scale(1) translateY(0)} }
+  .chip-idx { font-size: .72rem; color: var(--muted); }
+  .chip-str { font-size: .95rem; font-weight: 700; color: #e9d5ff; font-family: monospace; letter-spacing: .08em; }
+  .result-chip.new-chip { border-color: var(--green); background: var(--green-dim); }
+  .result-chip.new-chip .chip-str { color: #86efac; }
+  .no-result-text { color: var(--muted); font-size: .85rem; font-style: italic; }
+
+  /* ── Timeline ───────────────────────────────────────────── */
+  .timeline-wrap { margin-top: 10px; }
+  .timeline-label { font-size: .75rem; color: var(--muted); margin-bottom: 6px; }
+  .timeline-bar { position: relative; height: 20px; background: var(--surface2); border-radius: 6px; overflow: visible; border: 1px solid var(--border); }
+  .timeline-marker { position: absolute; top: -3px; width: 6px; height: 26px; background: var(--purple); border-radius: 3px; transform: translateX(-50%); box-shadow: 0 0 6px var(--purple-glow); transition: background .3s; }
+  .timeline-marker.just-found { background: var(--green); box-shadow: 0 0 8px var(--green-glow); }
+
+  /* ── Log ────────────────────────────────────────────────── */
+  .log-box { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: .78rem; color: var(--muted); min-height: 36px; font-family: monospace; line-height: 1.5; }
+
+  /* ── Controls ───────────────────────────────────────────── */
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .ctrl-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 9px 16px; cursor: pointer; font-size: .85rem; font-weight: 600; transition: background .15s; display: flex; align-items: center; gap: 6px; }
+  .ctrl-btn:hover { background: var(--border); }
+  .ctrl-btn:disabled { opacity: .35; cursor: default; }
+  .ctrl-btn.playing { background: var(--purple-dim); border-color: var(--purple); color: #c4b5fd; }
+  .speed-wrap { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .speed-wrap label { font-size: .78rem; color: var(--muted); }
+  .speed-wrap input { width: 100px; accent-color: var(--purple); }
+  .step-counter { font-size: .8rem; color: var(--muted); margin-left: 4px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>String <span>Anagrams</span></h1>
+  <div class="badge-row">
+    <span class="badge badge-hard">Hard</span>
+    <span class="badge badge-lc">LC #438</span>
+    <span class="badge badge-pat">Sliding Window</span>
+  </div>
+</div>
+
+<div class="breadcrumb">
+  <span class="crumb">Fixed Window</span><span class="arrow">›</span>
+  <span class="crumb">Find Averages</span><span class="arrow">›</span>
+  <span class="crumb">Max Sum</span><span class="arrow">›</span>
+  <span class="crumb">Permutation in String</span><span class="arrow">›</span>
+  <span class="crumb active">String Anagrams</span>
+</div>
+
+<div class="main">
+
+  <!-- Diff strip -->
+  <div class="diff-strip">
+    <strong>Key difference from Permutation in String:</strong>
+    Instead of returning <code>true</code> on the first match and stopping,
+    we <strong>push the starting index</strong> to a results list and <strong>keep sliding</strong> —
+    collecting every window where the pattern is an anagram.
+  </div>
+
+  <!-- Config -->
+  <div class="config-card">
+    <h3>Configuration</h3>
+    <div class="config-row">
+      <div class="config-field">
+        <label>String</label>
+        <input id="inp-str" type="text" value="ppqp" />
+      </div>
+      <div class="config-field">
+        <label>Pattern</label>
+        <input id="inp-pat" type="text" value="pq" />
+      </div>
+      <button class="btn btn-apply" onclick="applyConfig()">Apply</button>
+    </div>
+    <div class="examples">
+      <button class="btn btn-ex" onclick="loadEx('ppqp','pq')">ppqp / pq → [1,2]</button>
+      <button class="btn btn-ex" onclick="loadEx('abbcabc','abc')">abbcabc / abc → [2,3,4]</button>
+      <button class="btn btn-ex" onclick="loadEx('cbaebabacd','abc')">cbaebabacd / abc → [0,6]</button>
+      <button class="btn btn-ex" onclick="loadEx('aaaaaa','aa')">aaaaaa / aa → [0,1,2,3,4]</button>
+    </div>
+  </div>
+
+  <!-- Pattern + Freq map -->
+  <div class="two-col">
+    <div class="card">
+      <h3>Pattern</h3>
+      <div class="pattern-chars" id="pattern-chars"></div>
+      <h3 style="margin-top:10px;">charFreq (initialized from pattern)</h3>
+      <div class="freq-map" id="freq-map"></div>
+    </div>
+
+    <div class="card">
+      <h3>Match Counter</h3>
+      <div class="match-panel">
+        <div class="match-row">
+          <span class="match-label">matched</span>
+          <span class="match-val" id="match-val">0</span>
+          <span style="color:var(--muted);font-size:.9rem;">/ </span>
+          <span class="distinct-val" id="distinct-val">0</span>
+          <div class="match-bar-wrap"><div class="match-bar" id="match-bar" style="width:0%"></div></div>
+        </div>
+        <div style="font-size:.78rem;color:var(--muted);line-height:1.6;">
+          <strong style="color:var(--amber)">matched</strong> counts how many distinct chars in charFreq have frequency = 0.
+          When <strong style="color:var(--amber)">matched === distinct</strong>, every pattern char is accounted for → anagram!
+        </div>
+        <div class="phase-banner ph-init" id="phase-banner">
+          <div class="dot"></div>
+          <span id="phase-text">Ready</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- String visualization -->
+  <div class="card">
+    <h3>String — sliding window (size = pattern.length)</h3>
+    <div class="str-wrap">
+      <div class="str-cells" id="str-cells"></div>
+      <div class="ptr-row" id="ptr-row"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:5px;font-size:.75rem;color:var(--muted);">
+        <div style="width:12px;height:12px;border-radius:3px;background:var(--purple-dim);border:1px solid var(--purple);"></div> current window
+      </div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:.75rem;color:var(--muted);">
+        <div style="width:12px;height:12px;border-radius:3px;background:var(--green-dim);border:1px solid var(--green);"></div> anagram found here
+      </div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:.75rem;color:var(--muted);">
+        <div style="width:12px;height:12px;border-radius:3px;background:var(--amber-dim);border:2px solid var(--amber);"></div> windowStart (leaving char)
+      </div>
+    </div>
+  </div>
+
+  <!-- Results strip -->
+  <div class="results-section">
+    <h3>
+      Anagram Positions Found
+      <span class="results-count" id="results-count">0</span>
+    </h3>
+    <div class="results-chips" id="results-chips">
+      <span class="no-result-text" id="no-result-text">No anagrams found yet…</span>
+    </div>
+    <div class="timeline-wrap">
+      <div class="timeline-label">Timeline (position in string)</div>
+      <div class="timeline-bar" id="timeline-bar"></div>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="card">
+    <h3>Step Log</h3>
+    <div class="log-box" id="log-box">Press Play or Step Forward to begin.</div>
+  </div>
+
+  <!-- Controls -->
+  <div class="card" style="padding:12px 18px;">
+    <div class="controls">
+      <button class="ctrl-btn" id="btn-reset" onclick="resetAnim()">↺ Reset</button>
+      <button class="ctrl-btn" id="btn-step-b" onclick="stepBack()" disabled>‹ Back</button>
+      <button class="ctrl-btn" id="btn-play" onclick="playPause()">▶ Play</button>
+      <button class="ctrl-btn" id="btn-step-f" onclick="stepFwd()">Step ›</button>
+      <span class="step-counter" id="step-counter">Step 0 / 0</span>
+      <div class="speed-wrap">
+        <label>Speed</label>
+        <input type="range" id="speed-range" min="100" max="1500" value="700" step="100">
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let str = 'ppqp', pattern = 'pq';
+let steps = [], currentStep = -1, playing = false, timer = null;
+
+// ─── Color palette ───────────────────────────────────────────────────────────
+const COLORS = [
+  { bg:'#1e3a5f', border:'#3b82f6', text:'#93c5fd' },
+  { bg:'#14532d', border:'#22c55e', text:'#86efac' },
+  { bg:'#78350f', border:'#f59e0b', text:'#fcd34d' },
+  { bg:'#3b0764', border:'#8b5cf6', text:'#c4b5fd' },
+  { bg:'#164e63', border:'#06b6d4', text:'#67e8f9' },
+  { bg:'#7f1d1d', border:'#ef4444', text:'#fca5a5' },
+];
+let charColorMap = {};
+function getColor(ch) { return charColorMap[ch]; }
+
+function assignColors() {
+  charColorMap = {};
+  const distinct = [...new Set(pattern)];
+  distinct.forEach((c, i) => { charColorMap[c] = COLORS[i % COLORS.length]; });
+}
+
+// ─── Build DOM ───────────────────────────────────────────────────────────────
+function buildDOM() {
+  assignColors();
+
+  // Pattern chars
+  const pc = document.getElementById('pattern-chars');
+  pc.innerHTML = '';
+  for (const ch of pattern) {
+    const col = getColor(ch) || { bg:'var(--surface2)', border:'var(--border)', text:'var(--text)' };
+    const d = document.createElement('div');
+    d.className = 'p-cell';
+    d.textContent = ch;
+    d.style.background = col.bg;
+    d.style.borderColor = col.border;
+    d.style.color = col.text;
+    pc.appendChild(d);
+  }
+
+  // String cells
+  const sc = document.getElementById('str-cells');
+  const pr = document.getElementById('ptr-row');
+  sc.innerHTML = ''; pr.innerHTML = '';
+  for (let i = 0; i < str.length; i++) {
+    const cell = document.createElement('div');
+    cell.className = 's-cell';
+    cell.id = `sc-${i}`;
+    cell.innerHTML = `<span class="idx-label">${i}</span><span class="ch">${str[i]}</span>`;
+    sc.appendChild(cell);
+
+    const p = document.createElement('div');
+    p.className = 'ptr-cell';
+    p.id = `ptr-${i}`;
+    pr.appendChild(p);
+  }
+
+  // Freq map (will be initialized after)
+  renderFreqMap({}, false);
+
+  // Results
+  document.getElementById('results-chips').innerHTML = '<span class="no-result-text" id="no-result-text">No anagrams found yet…</span>';
+  document.getElementById('results-count').textContent = '0';
+  document.getElementById('timeline-bar').innerHTML = '';
+
+  // Match bar
+  document.getElementById('match-val').textContent = '0';
+  document.getElementById('match-val').className = 'match-val';
+  document.getElementById('distinct-val').textContent = '0';
+  document.getElementById('match-bar').style.width = '0%';
+  document.getElementById('match-bar').className = 'match-bar';
+
+  setPhase('ph-init', 'Ready — press Play or Step');
+  document.getElementById('log-box').textContent = 'Press Play or Step Forward to begin.';
+  document.getElementById('step-counter').textContent = `Step 0 / ${steps.length}`;
+}
+
+function renderFreqMap(freq, highlight) {
+  const fm = document.getElementById('freq-map');
+  fm.innerHTML = '';
+  const distinct = [...new Set(pattern)];
+  distinct.forEach(ch => {
+    const col = getColor(ch) || COLORS[0];
+    const cnt = freq[ch] !== undefined ? freq[ch] : 0;
+    const entry = document.createElement('div');
+    entry.className = 'freq-entry';
+    entry.innerHTML = `
+      <div class="freq-char" style="background:${col.bg};border:1px solid ${col.border};color:${col.text}">${ch}</div>
+      <div class="freq-count${cnt === 0 ? ' zero' : cnt < 0 ? ' negative' : ''}">${cnt}</div>
+    `;
+    fm.appendChild(entry);
+  });
+}
+
+// ─── Build steps ─────────────────────────────────────────────────────────────
+function buildSteps() {
+  const frames = [];
+  const distinct = [...new Set(pattern)];
+  const distinctCount = distinct.length;
+
+  // Init freq from pattern
+  let charFreq = {};
+  for (const ch of pattern) {
+    charFreq[ch] = (charFreq[ch] || 0) + 1;
+  }
+
+  frames.push({
+    ws: 0, we: -1,
+    freq: { ...charFreq },
+    matched: 0,
+    distinctCount,
+    results: [],
+    phase: 'ph-init',
+    phaseText: 'Initialized charFreq from pattern',
+    log: `Built charFreq from "${pattern}": ${JSON.stringify(charFreq)}`,
+    newFound: false,
+    newFoundIdx: -1,
+  });
+
+  let windowStart = 0, matched = 0;
+  const results = [];
+
+  for (let windowEnd = 0; windowEnd < str.length; windowEnd++) {
+    const endChar = str[windowEnd];
+    let isIn = endChar in charFreq;
+    let hitZero = false;
+
+    if (isIn) {
+      charFreq[endChar]--;
+      if (charFreq[endChar] === 0) {
+        matched++;
+        hitZero = true;
+      }
+    }
+
+    // Record: add endChar step
+    frames.push({
+      ws: windowStart, we: windowEnd,
+      freq: { ...charFreq },
+      matched,
+      distinctCount,
+      results: [...results],
+      phase: hitZero ? 'ph-match' : 'ph-add',
+      phaseText: hitZero
+        ? `'${endChar}' fully matched → matched = ${matched}`
+        : isIn
+          ? `'${endChar}' in pattern (freq ${charFreq[endChar]+1}→${charFreq[endChar]})`
+          : `'${endChar}' not in pattern — skip`,
+      log: isIn
+        ? (hitZero
+            ? `Add '${endChar}': charFreq['${endChar}'] = ${charFreq[endChar]} → matched++  (matched=${matched}/${distinctCount})`
+            : `Add '${endChar}': charFreq['${endChar}'] = ${charFreq[endChar]}`)
+        : `Add '${endChar}': not in pattern, no freq change`,
+      newFound: false,
+      newFoundIdx: -1,
+    });
+
+    // Check for anagram
+    if (matched === distinctCount) {
+      results.push(windowStart);
+      frames.push({
+        ws: windowStart, we: windowEnd,
+        freq: { ...charFreq },
+        matched,
+        distinctCount,
+        results: [...results],
+        phase: 'ph-found',
+        phaseText: `ANAGRAM FOUND! Starting index ${windowStart}`,
+        log: `✓ matched (${matched}) === distinct (${distinctCount}) → push index ${windowStart} | Substring: "${str.slice(windowStart, windowEnd+1)}"`,
+        newFound: true,
+        newFoundIdx: windowStart,
+      });
+    }
+
+    // Shrink: remove windowStart
+    if (windowEnd >= pattern.length - 1) {
+      const startChar = str[windowStart];
+      const startIsIn = startChar in charFreq;
+      let decremented = false;
+
+      if (startIsIn) {
+        if (charFreq[startChar] === 0) {
+          matched--;
+          decremented = true;
+        }
+        charFreq[startChar]++;
+      }
+
+      const prevWs = windowStart;
+      windowStart++;
+
+      frames.push({
+        ws: windowStart, we: windowEnd,
+        freq: { ...charFreq },
+        matched,
+        distinctCount,
+        results: [...results],
+        phase: 'ph-back',
+        phaseText: decremented
+          ? `Slide: '${startChar}' leaves (was matched→ matched--) → freq back to ${charFreq[startChar]}`
+          : startIsIn
+            ? `Slide: '${startChar}' leaves (was not matched) → freq back to ${charFreq[startChar]}`
+            : `Slide: '${startChar}' leaves (not in pattern) → no change`,
+        log: startIsIn
+          ? (decremented
+              ? `Remove '${startChar}': freq was 0 → matched-- (matched=${matched}), charFreq['${startChar}']++ = ${charFreq[startChar]}`
+              : `Remove '${startChar}': charFreq['${startChar}']++ = ${charFreq[startChar]}`)
+          : `Remove '${startChar}': not in pattern`,
+        newFound: false,
+        newFoundIdx: -1,
+        leaving: prevWs,
+      });
+    }
+  }
+
+  // Final frame
+  frames.push({
+    ws: windowStart, we: str.length,
+    freq: { ...charFreq },
+    matched,
+    distinctCount,
+    results: [...results],
+    phase: results.length > 0 ? 'ph-found' : 'ph-init',
+    phaseText: results.length > 0
+      ? `Done! Found ${results.length} anagram${results.length > 1 ? 's' : ''} at: [${results.join(', ')}]`
+      : 'Done! No anagrams found.',
+    log: `Complete. Result: [${results.join(', ')}]`,
+    newFound: false,
+    newFoundIdx: -1,
+    done: true,
+  });
+
+  return frames;
+}
+
+// ─── Apply frame ─────────────────────────────────────────────────────────────
+function applyFrame(f) {
+  // Reset cells
+  for (let i = 0; i < str.length; i++) {
+    const cell = document.getElementById(`sc-${i}`);
+    if (cell) { cell.className = 's-cell'; }
+    const ptr = document.getElementById(`ptr-${i}`);
+    if (ptr) { ptr.className = 'ptr-cell'; ptr.textContent = ''; }
+  }
+
+  // Mark all previously found windows in a subtle way
+  if (f.results && f.results.length > 0 && !f.newFound) {
+    // Already-found windows get green tint (subtle)
+    f.results.forEach(idx => {
+      for (let i = idx; i < idx + pattern.length; i++) {
+        const cell = document.getElementById(`sc-${i}`);
+        if (cell && i !== f.ws && !(i >= f.ws && i <= f.we)) {
+          cell.style.borderColor = '#166534';
+          cell.style.background = '#052e16';
+        }
+      }
+    });
+  }
+
+  // Current window
+  if (f.we >= 0 && f.we < str.length) {
+    for (let i = f.ws; i <= f.we; i++) {
+      const cell = document.getElementById(`sc-${i}`);
+      if (cell) {
+        cell.className = 's-cell in-window';
+        // Color the char if it's in pattern
+        const col = getColor(str[i]);
+        if (col) {
+          cell.style.borderColor = col.border;
+          cell.style.background = col.bg;
+        }
+      }
+    }
+  }
+
+  // Anagram found — flash whole window green
+  if (f.newFound) {
+    for (let i = f.ws; i <= f.we; i++) {
+      const cell = document.getElementById(`sc-${i}`);
+      if (cell) {
+        cell.className = 's-cell in-best anagram-found';
+        void cell.offsetWidth; // reflow to restart animation
+        cell.className = 's-cell in-best anagram-found';
+      }
+    }
+  }
+
+  // windowStart pointer (leaving char)
+  if (!f.done && f.we >= 0 && f.we < str.length && f.phase !== 'ph-found') {
+    const startCell = document.getElementById(`sc-${f.ws}`);
+    if (startCell) startCell.classList.add('window-start');
+    const startPtr = document.getElementById(`ptr-${f.ws}`);
+    if (startPtr) { startPtr.className = 'ptr-cell show-s'; startPtr.textContent = 'wS'; }
+    if (f.we !== f.ws) {
+      const endPtr = document.getElementById(`ptr-${f.we}`);
+      if (endPtr) { endPtr.className = 'ptr-cell show-e'; endPtr.textContent = 'wE'; }
+    } else {
+      const ptr = document.getElementById(`ptr-${f.ws}`);
+      if (ptr) { ptr.className = 'ptr-cell show-both'; ptr.textContent = 'wS=wE'; }
+    }
+  }
+
+  // Freq map
+  renderFreqMap(f.freq, true);
+
+  // Match counter
+  const matchVal = document.getElementById('match-val');
+  matchVal.textContent = f.matched;
+  matchVal.className = 'match-val' + (f.matched === f.distinctCount ? ' full' : '');
+  document.getElementById('distinct-val').textContent = f.distinctCount;
+  const pct = f.distinctCount > 0 ? (f.matched / f.distinctCount) * 100 : 0;
+  const mb = document.getElementById('match-bar');
+  mb.style.width = pct + '%';
+  mb.className = 'match-bar' + (f.matched === f.distinctCount ? ' full' : '');
+
+  // Phase
+  setPhase(f.phase, f.phaseText);
+
+  // Log
+  document.getElementById('log-box').textContent = f.log;
+
+  // Results
+  updateResults(f.results, f.newFoundIdx, f.newFound);
+
+  // Step counter
+  document.getElementById('step-counter').textContent = `Step ${currentStep + 1} / ${steps.length}`;
+  document.getElementById('btn-step-b').disabled = currentStep <= 0;
+  document.getElementById('btn-step-f').disabled = currentStep >= steps.length - 1;
+}
+
+function updateResults(results, newFoundIdx, isNew) {
+  const chips = document.getElementById('results-chips');
+  const count = document.getElementById('results-count');
+  const timeline = document.getElementById('timeline-bar');
+
+  count.textContent = results.length;
+
+  if (results.length === 0) {
+    chips.innerHTML = '<span class="no-result-text" id="no-result-text">No anagrams found yet…</span>';
+    timeline.innerHTML = '';
+    return;
+  }
+
+  // Rebuild chips
+  chips.innerHTML = '';
+  results.forEach((idx, i) => {
+    const chip = document.createElement('div');
+    const isLatest = isNew && idx === newFoundIdx && i === results.length - 1;
+    chip.className = 'result-chip' + (isLatest ? ' new-chip' : '');
+    const substr = str.slice(idx, idx + pattern.length);
+    chip.innerHTML = `<span class="chip-idx">idx ${idx}</span><span class="chip-str">${substr}</span>`;
+    chips.appendChild(chip);
+  });
+
+  // Rebuild timeline markers
+  timeline.innerHTML = '';
+  const barWidth = timeline.offsetWidth || 400;
+  results.forEach((idx, i) => {
+    const marker = document.createElement('div');
+    marker.className = 'timeline-marker' + (isNew && idx === newFoundIdx && i === results.length - 1 ? ' just-found' : '');
+    const pct = str.length > 1 ? (idx / (str.length - 1)) * 100 : 50;
+    marker.style.left = pct + '%';
+    marker.title = `idx ${idx}: "${str.slice(idx, idx + pattern.length)}"`;
+    timeline.appendChild(marker);
+  });
+}
+
+function setPhase(cls, text) {
+  const pb = document.getElementById('phase-banner');
+  pb.className = `phase-banner ${cls}`;
+  document.getElementById('phase-text').textContent = text;
+}
+
+// ─── Playback ─────────────────────────────────────────────────────────────────
+function playPause() {
+  playing = !playing;
+  document.getElementById('btn-play').textContent = playing ? '⏸ Pause' : '▶ Play';
+  document.getElementById('btn-play').className = 'ctrl-btn' + (playing ? ' playing' : '');
+  if (playing) tick();
+  else clearTimeout(timer);
+}
+
+function tick() {
+  if (!playing) return;
+  if (currentStep >= steps.length - 1) { playing = false; document.getElementById('btn-play').textContent = '▶ Play'; document.getElementById('btn-play').className = 'ctrl-btn'; return; }
+  advance();
+  const speed = 1600 - parseInt(document.getElementById('speed-range').value);
+  timer = setTimeout(tick, speed);
+}
+
+function advance() {
+  if (currentStep < steps.length - 1) { currentStep++; applyFrame(steps[currentStep]); }
+}
+
+function stepFwd() {
+  if (playing) { playing = false; clearTimeout(timer); document.getElementById('btn-play').textContent = '▶ Play'; document.getElementById('btn-play').className = 'ctrl-btn'; }
+  advance();
+}
+
+function stepBack() {
+  if (playing) { playing = false; clearTimeout(timer); document.getElementById('btn-play').textContent = '▶ Play'; document.getElementById('btn-play').className = 'ctrl-btn'; }
+  if (currentStep > 0) { currentStep--; applyFrame(steps[currentStep]); }
+}
+
+function resetAnim() {
+  playing = false; clearTimeout(timer);
+  document.getElementById('btn-play').textContent = '▶ Play';
+  document.getElementById('btn-play').className = 'ctrl-btn';
+  currentStep = -1;
+  buildDOM();
+  document.getElementById('step-counter').textContent = `Step 0 / ${steps.length}`;
+  document.getElementById('btn-step-b').disabled = true;
+  document.getElementById('btn-step-f').disabled = steps.length === 0;
+}
+
+// ─── Config ───────────────────────────────────────────────────────────────────
+function applyConfig() {
+  const s = document.getElementById('inp-str').value.trim();
+  const p = document.getElementById('inp-pat').value.trim();
+  if (!s || !p || p.length > s.length) { alert('String must be at least as long as pattern and both must be non-empty.'); return; }
+  str = s; pattern = p;
+  rebuildAll();
+}
+
+function loadEx(s, p) {
+  document.getElementById('inp-str').value = s;
+  document.getElementById('inp-pat').value = p;
+  str = s; pattern = p;
+  rebuildAll();
+}
+
+function rebuildAll() {
+  steps = buildSteps();
+  resetAnim();
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+rebuildAll();
+</script>
+</body>
+</html>
