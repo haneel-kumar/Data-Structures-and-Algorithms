@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>No-repeat Substring – Longest Without Repeating</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #090b14;
+      --surf:     #0f1120;
+      --surf2:    #141726;
+      --border:   #1c1f36;
+      --border2:  #242840;
+      --muted:    #334155;
+      --text:     #e2e8f0;
+      --accent:   #f59e0b;   /* amber — index map theme */
+      --green:    #10b981;
+      --red:      #ef4444;
+      --purple:   #a855f7;
+      --blue:     #3b82f6;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1rem 5rem;
+    }
+
+    /* ── Header ── */
+    .header { text-align:center; margin-bottom:1.8rem; }
+    .header h1 { font-size:1.5rem; font-weight:800; color:#f8fafc; letter-spacing:-.02em; }
+    .header p  { color:#475569; font-size:.82rem; margin-top:.3rem; }
+    .header a  { color:var(--accent); text-decoration:none; font-size:.76rem; }
+    .header a:hover { text-decoration:underline; }
+
+    /* ── Key difference callout ── */
+    .key-diff {
+      max-width:920px; margin:0 auto 1.3rem;
+      display:grid; grid-template-columns:1fr 1fr; gap:.8rem;
+    }
+    @media(max-width:560px){ .key-diff { grid-template-columns:1fr; } }
+
+    .diff-box {
+      border-radius:12px; padding:.9rem 1rem;
+      font-size:.78rem; line-height:1.55;
+    }
+    .diff-box.old { background:#0f172a; border:1px solid #1e293b; color:#475569; }
+    .diff-box.new { background:#1c1000; border:1px solid #92400e; color:#fde68a; }
+    .diff-box h3  { font-size:.82rem; margin-bottom:.35rem; }
+    .diff-box.old h3 { color:#334155; }
+    .diff-box.new h3 { color:var(--accent); }
+    code { font-family:monospace; font-size:.82rem; background:#ffffff12; padding:.1rem .3rem; border-radius:4px; }
+
+    /* ── Card ── */
+    .card {
+      background:var(--surf); border:1px solid var(--border);
+      border-radius:16px; padding:1.4rem 1.5rem;
+      margin-bottom:1.3rem; max-width:920px;
+      margin-left:auto; margin-right:auto;
+    }
+    .card-title { font-size:.68rem; font-weight:700; text-transform:uppercase;
+                  letter-spacing:.1em; color:var(--border2); margin-bottom:1rem; }
+
+    /* ── Controls ── */
+    .controls { display:flex; flex-wrap:wrap; align-items:center; gap:.6rem; }
+    label { font-size:.8rem; color:#94a3b8; }
+    input[type=text] {
+      background:var(--bg); border:1px solid var(--border);
+      border-radius:8px; color:#f1f5f9;
+      padding:.38rem .65rem; font-size:.9rem;
+      width:190px; font-family:monospace; letter-spacing:.1em;
+    }
+    input:focus { outline:2px solid var(--accent); outline-offset:2px; }
+    .btn { padding:.4rem 1rem; border-radius:8px; border:none;
+           font-size:.8rem; font-weight:600; cursor:pointer;
+           transition:opacity .15s, transform .1s; }
+    .btn:hover  { opacity:.85; transform:translateY(-1px); }
+    .btn:active { transform:none; }
+    .btn-primary { background:var(--accent); color:#000; }
+    .btn-play    { background:var(--green); color:#fff; min-width:86px; }
+    .btn-pause   { background:var(--accent); color:#000; min-width:86px; }
+    .btn-reset   { background:var(--surf2); border:1px solid var(--border); color:#64748b; }
+    .btn-step    { background:var(--surf2); border:1px solid var(--border); color:#64748b; }
+    .btn-ex      { background:var(--surf2); border:1px solid var(--border); color:#64748b; font-size:.72rem; }
+    .speed-row { display:flex; align-items:center; gap:.5rem; margin-top:.6rem; }
+    input[type=range] { accent-color:var(--accent); width:110px; }
+
+    /* ── Phase banner ── */
+    .phase-banner {
+      display:flex; align-items:center; gap:.6rem;
+      padding:.45rem .9rem; border-radius:10px; font-size:.77rem; font-weight:700;
+      margin-bottom:1.1rem; border:1px solid transparent; transition:all .3s;
+    }
+    .phase-extend { background:#031a0e; border-color:var(--green);  color:#6ee7b7; }
+    .phase-jump   { background:#1c0c00; border-color:var(--accent); color:#fde68a; }
+    .phase-idle   { background:#0f111a; border-color:#1e293b; color:#334155; }
+    .phase-dot    { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+    .phase-extend .phase-dot { background:var(--green);  box-shadow:0 0 6px var(--green); }
+    .phase-jump   .phase-dot { background:var(--accent); box-shadow:0 0 6px var(--accent);
+                                animation:blink .7s infinite; }
+    .phase-idle   .phase-dot { background:#374151; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* ── String display ── */
+    .string-wrap { overflow-x:auto; padding-bottom:.5rem; }
+    .string-scene { display:flex; flex-direction:column; gap:6px; min-width:max-content; }
+    .string-row   { display:flex; align-items:flex-end; gap:5px; }
+    .char-col     { display:flex; flex-direction:column; align-items:center; gap:3px; }
+    .char-idx     { font-size:.6rem; color:var(--border2); font-weight:600; }
+
+    .char-cell {
+      width:52px; height:56px; border-radius:11px;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:1px;
+      font-size:1.35rem; font-weight:800; font-family:monospace;
+      border:2px solid transparent;
+      transition:all .22s; position:relative; overflow:hidden;
+    }
+    .char-label { position:relative; z-index:1; }
+    .char-last-idx {
+      font-size:.52rem; font-weight:600; opacity:.7;
+      position:relative; z-index:1; font-family:'Segoe UI', sans-serif;
+    }
+    .cell-glow {
+      position:absolute; inset:0; border-radius:9px; opacity:0; transition:opacity .3s;
+    }
+
+    /* cell states */
+    .char-cell.default  { background:var(--surf2); border-color:var(--border); color:var(--border2); }
+    .char-cell.default .char-last-idx { color:var(--border); }
+    .char-cell.in-win   { transform:translateY(-5px);
+                          box-shadow:0 6px 18px rgba(16,185,129,.2); }
+    .char-cell.repeat   { background:#3b1400; border-color:var(--red); color:#fca5a5; transform:translateY(3px); }
+    .char-cell.repeat .char-last-idx { color:#f87171; }
+    .char-cell.jumped-from { background:#1c0c00; border-color:var(--accent); color:#fde68a; }
+    .char-cell.done     { background:var(--bg); border-color:#0f111a; color:#1e2236; }
+    .char-cell.done .char-last-idx { color:#0f111a; }
+    .char-cell.best     { transform:translateY(-5px); box-shadow:0 6px 20px rgba(168,85,247,.22); }
+
+    /* bracket */
+    .bracket-row { display:flex; gap:5px; min-width:max-content; }
+    .bracket-cell { width:52px; height:7px; display:flex; align-items:center; }
+    .bracket-line { height:3px; width:100%; border-radius:2px;
+                    opacity:0; transition:opacity .2s, background .2s; }
+    .bracket-line.v      { opacity:1; background:var(--green); }
+    .bracket-line.v.jump { background:var(--accent); }
+    .bracket-line.v.best { background:var(--purple); }
+
+    /* jump arrow row */
+    .jump-row { display:flex; gap:5px; min-width:max-content; height:28px; position:relative; }
+    .jump-cell { width:52px; height:28px; display:flex; align-items:center; justify-content:center; }
+    #jumpArrow {
+      position:absolute; height:100%; pointer-events:none;
+      display:flex; align-items:center;
+      font-size:.65rem; font-weight:700; color:var(--accent);
+      white-space:nowrap; gap:4px;
+      transition:all .3s;
+      opacity:0;
+    }
+    #jumpArrow.visible { opacity:1; }
+    .arrow-line {
+      height:2px; background:var(--accent); border-radius:1px;
+      transition:width .3s;
+    }
+    .arrow-head { font-size:.8rem; }
+
+    /* ── Index Map panel ── */
+    .map-panel {
+      background:var(--bg); border:1px solid var(--border);
+      border-radius:13px; padding:1rem 1.1rem; margin-top:1rem;
+    }
+    .map-header {
+      display:flex; justify-content:space-between; align-items:center; margin-bottom:.75rem;
+    }
+    .map-title { font-size:.65rem; font-weight:700; text-transform:uppercase;
+                 letter-spacing:.09em; color:var(--border2); }
+    .map-note  { font-size:.68rem; color:var(--border2); font-style:italic; }
+
+    .map-entries { display:flex; flex-wrap:wrap; gap:.45rem; min-height:40px; }
+    .map-entry {
+      display:flex; align-items:center; gap:.35rem;
+      padding:.28rem .6rem; border-radius:8px;
+      border:1px solid transparent;
+      font-family:monospace; font-size:.83rem; font-weight:700;
+      transition:all .2s;
+    }
+    .map-entry.normal  { background:var(--surf2); border-color:var(--border); }
+    .map-entry.current { border-color:var(--accent); background:#1c1000; transform:scale(1.08); }
+    .map-entry.repeat-key { border-color:var(--red); background:#200808; animation:shake .3s; }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-3px)} 75%{transform:translateX(3px)} }
+
+    .me-char  { font-size:.95rem; }
+    .me-arrow { color:var(--border2); font-size:.7rem; }
+    .me-idx   { background:#ffffff12; border-radius:4px; padding:.05rem .3rem;
+                font-size:.75rem; color:var(--text); }
+
+    /* ── Info grid ── */
+    .info-grid {
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr));
+      gap:.6rem; margin-top:1rem;
+    }
+    .info-box { background:var(--bg); border:1px solid #141827;
+                border-radius:10px; padding:.65rem .85rem; text-align:center; }
+    .info-label { font-size:.6rem; text-transform:uppercase; letter-spacing:.08em;
+                  color:var(--border2); margin-bottom:.22rem; }
+    .info-val   { font-size:1.25rem; font-weight:700; color:#f1f5f9; font-variant-numeric:tabular-nums; }
+    .info-val.amber  { color:#fde68a; }
+    .info-val.green  { color:#6ee7b7; }
+    .info-val.purple { color:#c4b5fd; }
+    .info-val.red    { color:#fca5a5; }
+
+    /* ── Math.max explainer ── */
+    .max-explainer {
+      display:none; background:#1c1000; border:1px solid #92400e;
+      border-radius:11px; padding:.85rem 1rem; margin-top:1rem;
+      font-size:.79rem; line-height:1.6;
+    }
+    .max-explainer.visible { display:block; }
+    .max-title { font-size:.65rem; font-weight:700; text-transform:uppercase;
+                 letter-spacing:.09em; color:#92400e; margin-bottom:.45rem; }
+    .max-row   { display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:.35rem; }
+    .max-option { flex:1; min-width:140px; background:#ffffff08; border-radius:8px; padding:.5rem .7rem; }
+    .max-opt-label { font-size:.62rem; color:#78350f; font-weight:700; margin-bottom:.2rem; text-transform:uppercase; }
+    .max-opt-val   { font-size:1rem; font-weight:700; font-family:monospace; }
+    .max-opt-val.chosen { color:#fde68a; }
+    .max-opt-val.rejected { color:#334155; text-decoration:line-through; }
+    .max-reason { font-size:.75rem; color:#78350f; }
+
+    /* ── Best strip ── */
+    .best-strip {
+      display:flex; align-items:center; gap:.75rem;
+      background:var(--surf); border:1px solid var(--border);
+      border-radius:12px; padding:.8rem 1rem; margin-top:1rem;
+      transition:all .3s;
+    }
+    .best-strip.new { background:#190b2e; border-color:#7c3aed; }
+    .best-label  { font-size:.7rem; color:var(--border2); white-space:nowrap; }
+    .best-strip.new .best-label { color:#6d28d9; }
+    .best-chars  { flex:1; font-family:monospace; font-size:1.2rem; font-weight:900;
+                   letter-spacing:.12em; color:var(--purple); }
+    .best-len    { font-size:1.6rem; font-weight:800; color:#c4b5fd; }
+
+    /* ── Step log ── */
+    .step-log {
+      background:#060810; border:1px solid var(--surf);
+      border-radius:10px; padding:.8rem 1rem;
+      font-size:.79rem; line-height:1.65; color:#475569;
+      min-height:66px; max-height:130px; overflow-y:auto; margin-top:1rem;
+    }
+    .log-ext   { color:#6ee7b7; font-weight:600; }
+    .log-rep   { color:#fca5a5; font-weight:600; }
+    .log-jump  { color:#fde68a; font-weight:700; }
+    .log-best  { color:#c4b5fd; font-weight:700; }
+    .log-map   { color:var(--accent); font-family:monospace; font-weight:600; }
+    .log-done  { color:#22c55e; font-weight:700; }
+    .log-safe  { color:#6ee7b7; font-style:italic; }
+
+    /* ── Playback ── */
+    .playback-row { display:flex; flex-wrap:wrap; gap:.55rem; margin-top:1.1rem; }
+
+    /* ── Legend ── */
+    .legend { display:flex; flex-wrap:wrap; gap:.65rem; margin-top:.9rem; }
+    .legend-item { display:flex; align-items:center; gap:.35rem; font-size:.71rem; color:#334155; }
+    .legend-dot  { width:10px; height:10px; border-radius:3px; flex-shrink:0; }
+
+    /* ── Complexity ── */
+    .complexity-row { display:flex; gap:.7rem; flex-wrap:wrap; margin-top:.65rem; }
+    .complexity-badge {
+      display:inline-flex; align-items:center; gap:.4rem;
+      padding:.28rem .75rem; border-radius:999px; font-size:.73rem; font-weight:700;
+    }
+    .badge-time  { background:#052e16; border:1px solid #166534; color:#86efac; }
+    .badge-space { background:#1c1000; border:1px solid #92400e; color:#fde68a; }
+    .badge-dot   { width:7px; height:7px; border-radius:50%; }
+    .badge-time  .badge-dot { background:#22c55e; }
+    .badge-space .badge-dot { background:var(--accent); }
+
+    .insight-block {
+      background:var(--bg); border-left:3px solid var(--accent);
+      border-radius:0 10px 10px 0; padding:.8rem 1rem;
+      margin-top:.75rem; font-size:.79rem; color:#475569; line-height:1.6;
+    }
+
+    ::-webkit-scrollbar { width:5px; height:5px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+    @media(max-width:500px) {
+      .char-cell { width:40px; height:48px; font-size:1.1rem; }
+      .bracket-cell, .jump-cell { width:40px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1>No-repeat Substring</h1>
+  <p>Longest substring without any repeating characters · Sliding Window + Index Map</p>
+  <a href="https://leetcode.com/problems/longest-substring-without-repeating-characters/" target="_blank">↗ LeetCode #3</a>
+</div>
+
+<!-- Key difference callout -->
+<div class="key-diff">
+  <div class="diff-box old">
+    <h3>Previous problems — frequency map</h3>
+    Stored <code>{ char: count }</code>. When the window became invalid, used a <strong>while loop</strong>
+    to shrink one step at a time until valid again. O(N) total but multiple iterations per repeat.
+  </div>
+  <div class="diff-box new">
+    <h3>This problem — index map ⚡</h3>
+    Stores <code>{ char: lastSeenIndex }</code>. When a repeat appears,
+    <strong>jumps windowStart directly</strong> to <code>lastIndex + 1</code> in one step —
+    no inner loop needed. The <code>Math.max</code> guard prevents moving backward.
+  </div>
+</div>
+
+<!-- Config -->
+<div class="card">
+  <div class="card-title">Configuration</div>
+  <div class="controls">
+    <label>String</label>
+    <input type="text" id="strInput" value="aabccbb"/>
+    <button class="btn btn-primary" onclick="applyConfig()">Apply</button>
+  </div>
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.55rem;">
+    <button class="btn btn-ex" onclick="loadEx('aabccbb')">"aabccbb" → 3</button>
+    <button class="btn btn-ex" onclick="loadEx('abbbb')">"abbbb" → 2</button>
+    <button class="btn btn-ex" onclick="loadEx('abccde')">"abccde" → 3</button>
+    <button class="btn btn-ex" onclick="loadEx('abcabcbb')">"abcabcbb" → 3</button>
+    <button class="btn btn-ex" onclick="loadEx('pwwkew')">"pwwkew" → 3</button>
+    <button class="btn btn-ex" onclick="loadEx('abcdef')">"abcdef" → 6</button>
+  </div>
+  <div class="speed-row">
+    <label>Speed</label>
+    <input type="range" id="speedRange" min="1" max="5" value="3" oninput="onSpeedChange(this.value)"/>
+    <span id="speedLabel" style="font-size:.73rem;color:var(--border2);">Normal</span>
+  </div>
+</div>
+
+<!-- Visualizer -->
+<div class="card">
+  <!-- Phase banner -->
+  <div class="phase-banner phase-idle" id="phaseBanner">
+    <div class="phase-dot"></div>
+    <span id="phaseText">Ready — press Play to begin</span>
+  </div>
+
+  <!-- String + jump row -->
+  <div class="string-wrap">
+    <div class="string-scene">
+      <div class="string-row"  id="stringRow"></div>
+      <div class="bracket-row" id="bracketRow"></div>
+      <!-- jump arrow layer -->
+      <div class="jump-row" id="jumpRow">
+        <div id="jumpArrow">
+          <div class="arrow-line" id="arrowLine"></div>
+          <div class="arrow-head">▶</div>
+          <span id="arrowLabel"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Index map panel -->
+  <div class="map-panel">
+    <div class="map-header">
+      <div class="map-title">charIndexMap &nbsp;<span style="color:var(--border2);font-weight:400;">{ char → last seen index }</span></div>
+      <div class="map-note">Not frequency — position!</div>
+    </div>
+    <div class="map-entries" id="mapEntries">
+      <span style="font-size:.72rem;color:var(--border2);">empty</span>
+    </div>
+  </div>
+
+  <!-- Math.max explainer (shown on jump steps) -->
+  <div class="max-explainer" id="maxExplainer">
+    <div class="max-title">⚡ Math.max guard — why it matters</div>
+    <div class="max-row">
+      <div class="max-option">
+        <div class="max-opt-label">charIndexMap[endChar] + 1</div>
+        <div class="max-opt-val" id="mxOpt1">–</div>
+      </div>
+      <div class="max-option">
+        <div class="max-opt-label">current windowStart</div>
+        <div class="max-opt-val" id="mxOpt2">–</div>
+      </div>
+      <div class="max-option">
+        <div class="max-opt-label">Math.max → chosen</div>
+        <div class="max-opt-val chosen" id="mxChosen">–</div>
+      </div>
+    </div>
+    <div class="max-reason" id="mxReason">–</div>
+  </div>
+
+  <!-- Info grid -->
+  <div class="info-grid">
+    <div class="info-box">
+      <div class="info-label">windowStart</div>
+      <div class="info-val purple" id="iStart">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">windowEnd</div>
+      <div class="info-val green" id="iEnd">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Current window</div>
+      <div class="info-val amber" id="iWin" style="font-family:monospace;font-size:1rem;">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Window size</div>
+      <div class="info-val" id="iSize">–</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">maxLength</div>
+      <div class="info-val purple" id="iMax">0</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Step</div>
+      <div class="info-val" id="iStep">0 / 0</div>
+    </div>
+  </div>
+
+  <!-- Best strip -->
+  <div class="best-strip" id="bestStrip">
+    <div class="best-label">Longest non-repeating substring</div>
+    <div class="best-chars" id="bestChars">–</div>
+    <div class="best-len"   id="bestLen">0</div>
+  </div>
+
+  <!-- Log -->
+  <div class="step-log" id="stepLog">Press <strong>Play</strong> to start the animation.</div>
+
+  <!-- Playback -->
+  <div class="playback-row">
+    <button class="btn btn-play" id="btnPlay" onclick="playPause()">▶ Play</button>
+    <button class="btn btn-reset" onclick="resetAnim()">↺ Reset</button>
+    <button class="btn btn-step"  onclick="stepFwd()">Step →</button>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> In window (unique chars)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div> Repeat detected</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div> Old occurrence (jumped past)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div> Best window</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#0f111a"></div> Processed</div>
+  </div>
+</div>
+
+<!-- Complexity + insight -->
+<div class="card">
+  <div class="card-title">Why This Approach Is Different</div>
+
+  <div class="insight-block">
+    <strong style="color:#fde68a;">Index map vs frequency map.</strong>
+    Previous problems needed a <em>frequency count</em> to know when to remove a character from the window.
+    Here, because we want <em>zero repeats</em>, we don't need to count — we just need to know
+    <em>where we last saw</em> each character. That lets us skip past the entire stale occurrence
+    in O(1) instead of walking back one step at a time.
+  </div>
+
+  <div class="insight-block" style="border-color:var(--red); margin-top:.6rem;">
+    <strong style="color:#fca5a5;">The Math.max guard.</strong>
+    When a repeated character's previous index is <em>behind</em> our current windowStart
+    (already outside the window), jumping to <code>prevIdx + 1</code> would move windowStart
+    <em>backward</em> — making the window larger and invalid.
+    <code>Math.max(windowStart, prevIdx + 1)</code> ensures we never shrink backward.
+  </div>
+
+  <div class="complexity-row" style="margin-top:.9rem;">
+    <div class="complexity-badge badge-time"><div class="badge-dot"></div> O(N) time — single pass, O(1) jump per repeat</div>
+    <div class="complexity-badge badge-space"><div class="badge-dot"></div> O(K) space — K distinct chars in map</div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────
+//  Colour palette per unique character
+// ─────────────────────────────────────────
+const PALETTE = [
+  '#34d399','#60a5fa','#f472b6','#a78bfa','#fb923c',
+  '#facc15','#22d3ee','#4ade80','#f87171','#e879f9',
+];
+let charColorMap = {};
+let colorIdx = 0;
+function colorFor(ch) {
+  if (!charColorMap[ch]) { charColorMap[ch] = PALETTE[colorIdx++ % PALETTE.length]; }
+  return charColorMap[ch];
+}
+
+// ─────────────────────────────────────────
+//  State
+// ─────────────────────────────────────────
+let str  = 'aabccbb';
+let steps= [];
+let currentStep = -1;
+let playing = false;
+let timer   = null;
+
+const SPEEDS = {1:1800,2:1200,3:750,4:370,5:150};
+const SPEED_LABELS = {1:'Slow',2:'Relaxed',3:'Normal',4:'Fast',5:'Turbo'};
+
+// ─────────────────────────────────────────
+//  DOM Build
+// ─────────────────────────────────────────
+function buildDOM() {
+  charColorMap = {}; colorIdx = 0;
+  const row  = document.getElementById('stringRow');
+  const brRow= document.getElementById('bracketRow');
+  const jRow = document.getElementById('jumpRow');
+  row.innerHTML = ''; brRow.innerHTML = '';
+
+  // clear jump row except the arrow
+  const arrow = document.getElementById('jumpArrow');
+  jRow.innerHTML = '';
+  jRow.appendChild(arrow);
+
+  [...str].forEach((ch, i) => {
+    const col = document.createElement('div');
+    col.className = 'char-col';
+
+    const idx = document.createElement('div');
+    idx.className = 'char-idx';
+    idx.textContent = i;
+
+    const cell = document.createElement('div');
+    cell.className = 'char-cell default';
+    cell.id = `cell-${i}`;
+
+    const lbl = document.createElement('div');
+    lbl.className = 'char-label';
+    lbl.textContent = ch;
+
+    const sub = document.createElement('div');
+    sub.className = 'char-last-idx';
+    sub.id = `sub-${i}`;
+    sub.textContent = '–';
+
+    cell.append(lbl, sub);
+    col.append(idx, cell);
+    row.appendChild(col);
+
+    const bc = document.createElement('div');
+    bc.className = 'bracket-cell';
+    const bl = document.createElement('div');
+    bl.className = 'bracket-line';
+    bl.id = `brk-${i}`;
+    bc.appendChild(bl);
+    brRow.appendChild(bc);
+
+    const jc = document.createElement('div');
+    jc.className = 'jump-cell';
+    jc.id = `jcell-${i}`;
+    jRow.insertBefore(jc, arrow);
+  });
+}
+
+// ─────────────────────────────────────────
+//  Step Builder
+// ─────────────────────────────────────────
+function buildSteps() {
+  const frames = [];
+  let windowStart = 0, maxLength = 0;
+  let bestStart = -1, bestEnd = -1;
+  const idxMap = {};           // char -> last seen index
+
+  for (let windowEnd = 0; windowEnd < str.length; windowEnd++) {
+    const endChar = str[windowEnd];
+
+    let isRepeat    = false;
+    let prevIdx     = -1;
+    let jumpTarget  = windowStart;
+    let didJump     = false;
+    let jumpWasSafe = false;   // Math.max picked windowStart (no actual jump needed)
+
+    if (endChar in idxMap) {
+      prevIdx = idxMap[endChar];
+      isRepeat = true;
+      const candidate = prevIdx + 1;
+      jumpTarget = Math.max(windowStart, candidate);
+      didJump     = jumpTarget > windowStart;
+      jumpWasSafe = jumpTarget === windowStart;   // guard fired, no movement
+      windowStart = jumpTarget;
+    }
+
+    idxMap[endChar] = windowEnd;
+
+    const curLen    = windowEnd - windowStart + 1;
+    const isNewBest = curLen > maxLength;
+    if (isNewBest) { maxLength = curLen; bestStart = windowStart; bestEnd = windowEnd; }
+
+    frames.push({
+      windowStart, windowEnd,
+      idxMap: snap(idxMap),
+      maxLength, bestStart, bestEnd,
+      isRepeat, prevIdx, didJump, jumpWasSafe,
+      jumpFrom: prevIdx,
+      jumpTo:   isRepeat ? windowStart : -1,
+      endChar,
+      isNewBest,
+      log: buildLog(windowEnd, endChar, isRepeat, prevIdx, windowStart, didJump, jumpWasSafe, curLen, maxLength)
+    });
+  }
+  return frames;
+}
+
+function snap(m) { const o={}; for(const[k,v] of Object.entries(m)) o[k]=v; return o; }
+
+function buildLog(we, ch, isRepeat, prevIdx, ws, didJump, jumpWasSafe, curLen, maxLen) {
+  if (!isRepeat) {
+    return `<span class="log-ext">EXTEND →</span> <span class="log-map">'${ch}'</span> at [${we}] is new. Added to map. Window = <span class="log-map">"${str.slice(ws, we+1)}"</span> (size ${curLen}).`;
+  }
+  if (jumpWasSafe) {
+    return `<span class="log-rep">REPEAT!</span> <span class="log-map">'${ch}'</span> last seen at [${prevIdx}], but that's already behind windowStart=${ws}. <span class="log-safe">Math.max guard: no jump needed — windowStart stays at ${ws}.</span> Updated map[${ch}] = ${we}.`;
+  }
+  return `<span class="log-rep">REPEAT!</span> <span class="log-map">'${ch}'</span> last seen at [${prevIdx}]. <span class="log-jump">⚡ Jump: windowStart ${ws - (we - prevIdx + 1) + (we - ws)}→${ws}</span> (= ${prevIdx}+1). Updated map[${ch}] = ${we}. Window = <span class="log-map">"${str.slice(ws, we+1)}"</span>.`;
+}
+
+// ─────────────────────────────────────────
+//  Frame Renderer
+// ─────────────────────────────────────────
+const CELL_W = 57; // cell width + gap
+
+function applyFrame(f) {
+  const { windowStart, windowEnd, idxMap, maxLength, bestStart, bestEnd,
+          isRepeat, prevIdx, didJump, jumpWasSafe, endChar, isNewBest } = f;
+
+  // reset cells
+  [...str].forEach((ch, i) => {
+    const c = document.getElementById(`cell-${i}`);
+    c.className = 'char-cell default';
+    c.style.background = c.style.borderColor = c.style.color = c.style.boxShadow = '';
+    document.getElementById(`sub-${i}`).textContent = '–';
+    const b = document.getElementById(`brk-${i}`);
+    if (b) b.className = 'bracket-line';
+  });
+
+  // update last-index sub-labels from map
+  for (const [ch, idx] of Object.entries(idxMap)) {
+    const sub = document.getElementById(`sub-${idx}`);
+    if (sub) sub.textContent = `@${idx}`;
+  }
+
+  // best window (purple tint)
+  if (bestStart >= 0) {
+    for (let i = bestStart; i <= bestEnd; i++) {
+      const c = document.getElementById(`cell-${i}`);
+      const col = colorFor(str[i]);
+      c.className = 'char-cell best';
+      c.style.background   = '#a855f733';
+      c.style.borderColor  = '#a855f7';
+      c.style.color        = '#e9d5ff';
+      c.style.boxShadow    = '0 6px 20px rgba(168,85,247,.2)';
+      const b = document.getElementById(`brk-${i}`);
+      if (b) b.className = 'bracket-line v best';
+    }
+  }
+
+  // current window
+  for (let i = windowStart; i <= windowEnd; i++) {
+    const c   = document.getElementById(`cell-${i}`);
+    const b   = document.getElementById(`brk-${i}`);
+    const col = colorFor(str[i]);
+
+    if (isRepeat && i === windowEnd) {
+      // the repeat char at windowEnd
+      c.className = 'char-cell repeat';
+      c.style.background = c.style.borderColor = c.style.color = c.style.boxShadow = '';
+    } else {
+      c.className = 'char-cell in-win';
+      c.style.background  = col + '22';
+      c.style.borderColor = col;
+      c.style.color       = col;
+      c.style.boxShadow   = `0 6px 18px ${col}33`;
+    }
+    if (b) b.className = `bracket-line v${isRepeat ? ' jump' : ''}`;
+  }
+
+  // the old occurrence that was jumped past
+  if (isRepeat && prevIdx >= 0 && prevIdx < windowStart) {
+    const c = document.getElementById(`cell-${prevIdx}`);
+    if (c && !c.className.includes('best')) {
+      c.className = 'char-cell jumped-from';
+      c.style.background = c.style.borderColor = c.style.color = c.style.boxShadow = '';
+    }
+  }
+
+  // faded past (before windowStart, not jumped-from or best)
+  for (let i = 0; i < windowStart; i++) {
+    const c = document.getElementById(`cell-${i}`);
+    if (!c.className.includes('best') && !c.className.includes('jumped-from')) {
+      c.className = 'char-cell done';
+      c.style.background = c.style.borderColor = c.style.color = c.style.boxShadow = '';
+    }
+    const b = document.getElementById(`brk-${i}`);
+    if (b && !b.className.includes('best')) b.className = 'bracket-line';
+  }
+
+  // phase banner
+  const banner = document.getElementById('phaseBanner');
+  const ptext  = document.getElementById('phaseText');
+  if (!isRepeat) {
+    banner.className = 'phase-banner phase-extend';
+    ptext.textContent = `EXTEND → '${endChar}' at [${windowEnd}] — unique, window grows`;
+  } else if (jumpWasSafe) {
+    banner.className = 'phase-banner phase-jump';
+    ptext.textContent = `SAFE REPEAT — '${endChar}' was at [${prevIdx}], already outside window — no jump`;
+  } else {
+    banner.className = 'phase-banner phase-jump';
+    ptext.textContent = `⚡ JUMP — '${endChar}' repeat at [${prevIdx}] — windowStart jumps to ${windowStart}`;
+  }
+
+  // jump arrow
+  renderJumpArrow(isRepeat && didJump, prevIdx, windowStart - 1, windowEnd);
+
+  // Math.max explainer
+  renderMaxExplainer(f);
+
+  // index map
+  renderMap(idxMap, endChar, isRepeat);
+
+  // info
+  const curStr = str.slice(windowStart, windowEnd + 1);
+  document.getElementById('iStart').textContent = windowStart;
+  document.getElementById('iEnd').textContent   = windowEnd;
+  document.getElementById('iWin').textContent   = `"${curStr}"`;
+  document.getElementById('iSize').textContent  = curStr.length;
+  document.getElementById('iMax').textContent   = maxLength;
+  document.getElementById('iStep').textContent  = `${currentStep + 1} / ${steps.length}`;
+
+  // best strip
+  const strip = document.getElementById('bestStrip');
+  strip.className = 'best-strip' + (isNewBest ? ' new' : '');
+  document.getElementById('bestChars').textContent =
+    bestStart >= 0 ? `"${str.slice(bestStart, bestEnd + 1)}"` : '–';
+  document.getElementById('bestLen').textContent = maxLength || '0';
+
+  document.getElementById('stepLog').innerHTML = f.log;
+}
+
+function renderJumpArrow(show, fromIdx, toIdx, windowEnd) {
+  const arrow = document.getElementById('jumpArrow');
+  if (!show || fromIdx < 0) { arrow.className = ''; return; }
+
+  // position: fromIdx cell to new windowStart
+  const left  = fromIdx * CELL_W + 8;
+  const width  = Math.max(0, (windowEnd - fromIdx) * CELL_W - 16);
+  arrow.style.left  = left + 'px';
+  document.getElementById('arrowLine').style.width  = width + 'px';
+  document.getElementById('arrowLabel').textContent = `jumped ${windowEnd - fromIdx} steps`;
+  arrow.className = 'visible';
+}
+
+function renderMaxExplainer(f) {
+  const box = document.getElementById('maxExplainer');
+  if (!f.isRepeat) { box.className = 'max-explainer'; return; }
+
+  box.className = 'max-explainer visible';
+  const candidate = f.prevIdx + 1;
+  const oldWs     = f.jumpWasSafe ? f.windowStart : f.windowStart - (f.windowStart - candidate <= 0 ? 0 : 0); // simplified
+  const chosen    = f.windowStart;
+
+  document.getElementById('mxOpt1').textContent  = `${f.prevIdx} + 1 = ${candidate}`;
+  document.getElementById('mxOpt2').textContent  = f.jumpWasSafe ? `${f.windowStart}` : `${chosen - (candidate - (f.jumpWasSafe?0:0))}`;
+
+  // figure out the pre-jump windowStart
+  // we stored windowStart already updated; reverse-engineer old ws
+  const preJumpWs = f.didJump ? candidate - 1 : f.windowStart;
+  document.getElementById('mxOpt2').textContent = f.jumpWasSafe ? `${f.windowStart}` : String(f.windowStart - 0);
+
+  if (f.jumpWasSafe) {
+    document.getElementById('mxOpt1').className = 'max-opt-val rejected';
+    document.getElementById('mxOpt2').className = 'max-opt-val chosen';
+    document.getElementById('mxChosen').textContent = `${f.windowStart} (windowStart)`;
+    document.getElementById('mxReason').textContent =
+      `prevIdx ${f.prevIdx} is already outside the window. Jumping to ${candidate} would still be ≤ windowStart — no movement needed.`;
+  } else {
+    document.getElementById('mxOpt1').className = 'max-opt-val chosen';
+    document.getElementById('mxOpt2').className = 'max-opt-val rejected';
+    document.getElementById('mxChosen').textContent = `${candidate} (prevIdx + 1)`;
+    document.getElementById('mxReason').textContent =
+      `prevIdx ${f.prevIdx} is inside the window. windowStart jumps to ${candidate} to skip past the old '${f.endChar}'.`;
+  }
+}
+
+function renderMap(idxMap, currentChar, isRepeat) {
+  const container = document.getElementById('mapEntries');
+  if (Object.keys(idxMap).length === 0) {
+    container.innerHTML = '<span style="font-size:.72rem;color:var(--border2);">empty</span>';
+    return;
+  }
+  container.innerHTML = '';
+  for (const [ch, idx] of Object.entries(idxMap)) {
+    const col   = colorFor(ch);
+    const entry = document.createElement('div');
+    const isCurrent= ch === currentChar;
+    const isRep    = isCurrent && isRepeat;
+    entry.className = `map-entry${isRep ? ' repeat-key' : isCurrent ? ' current' : ' normal'}`;
+    entry.style.borderColor = isRep ? 'var(--red)' : isCurrent ? 'var(--accent)' : col + '66';
+    entry.style.background  = isRep ? '#200808' : isCurrent ? '#1c1000' : col + '18';
+
+    const charSpan = document.createElement('span');
+    charSpan.className = 'me-char';
+    charSpan.style.color = isRep ? 'var(--red)' : isCurrent ? 'var(--accent)' : col;
+    charSpan.textContent = `'${ch}'`;
+
+    const arrow = document.createElement('span');
+    arrow.className = 'me-arrow';
+    arrow.textContent = '→';
+
+    const idxSpan = document.createElement('span');
+    idxSpan.className = 'me-idx';
+    idxSpan.textContent = idx;
+
+    entry.append(charSpan, arrow, idxSpan);
+    container.appendChild(entry);
+  }
+}
+
+// ─────────────────────────────────────────
+//  Playback
+// ─────────────────────────────────────────
+function playPause() {
+  if (playing) { clearInterval(timer); playing = false; setBtnPlay(false); }
+  else {
+    if (currentStep >= steps.length - 1) resetAnim();
+    playing = true; setBtnPlay(true);
+    advance(); timer = setInterval(advance, getDelay());
+  }
+}
+function advance() {
+  if (currentStep < steps.length - 1) { currentStep++; applyFrame(steps[currentStep]); }
+  else {
+    clearInterval(timer); playing = false; setBtnPlay(false);
+    const f = steps[steps.length - 1];
+    document.getElementById('stepLog').innerHTML +=
+      ` <span class="log-done">✓ Answer = ${f.maxLength}</span>`;
+    document.getElementById('phaseBanner').className = 'phase-banner phase-extend';
+    document.getElementById('phaseText').textContent =
+      `Done! Longest = "${str.slice(f.bestStart, f.bestEnd + 1)}" (${f.maxLength})`;
+  }
+}
+function stepFwd() {
+  if (playing) { clearInterval(timer); playing = false; setBtnPlay(false); }
+  if (currentStep < steps.length - 1) { currentStep++; applyFrame(steps[currentStep]); }
+}
+function resetAnim() {
+  clearInterval(timer); playing = false; setBtnPlay(false);
+  currentStep = -1;
+  buildDOM();
+  ['iStart','iEnd','iWin','iSize'].forEach(id => document.getElementById(id).textContent = '–');
+  document.getElementById('iMax').textContent   = '0';
+  document.getElementById('iStep').textContent  = `0 / ${steps.length}`;
+  document.getElementById('stepLog').textContent = 'Press Play to start the animation.';
+  document.getElementById('mapEntries').innerHTML= '<span style="font-size:.72rem;color:var(--border2);">empty</span>';
+  document.getElementById('bestChars').textContent= '–';
+  document.getElementById('bestLen').textContent  = '0';
+  document.getElementById('bestStrip').className  = 'best-strip';
+  document.getElementById('phaseBanner').className= 'phase-banner phase-idle';
+  document.getElementById('phaseText').textContent= 'Ready — press Play to begin';
+  document.getElementById('maxExplainer').className = 'max-explainer';
+  document.getElementById('jumpArrow').className  = '';
+}
+function setBtnPlay(p) {
+  const btn = document.getElementById('btnPlay');
+  btn.className   = p ? 'btn btn-pause' : 'btn btn-play';
+  btn.textContent = p ? '⏸ Pause' : '▶ Play';
+}
+function getDelay() { return SPEEDS[document.getElementById('speedRange').value] || 750; }
+function onSpeedChange(v) {
+  document.getElementById('speedLabel').textContent = SPEED_LABELS[v];
+  if (playing) { clearInterval(timer); timer = setInterval(advance, getDelay()); }
+}
+
+// ─────────────────────────────────────────
+//  Config
+// ─────────────────────────────────────────
+function applyConfig() {
+  const s = document.getElementById('strInput').value.trim().replace(/\s/g,'');
+  if (!s.length) return;
+  str = s; rebuildAll();
+}
+function loadEx(s) {
+  str = s;
+  document.getElementById('strInput').value = s;
+  rebuildAll();
+}
+function rebuildAll() { steps = buildSteps(); resetAnim(); }
+
+// ─────────────────────────────────────────
+//  Init
+// ─────────────────────────────────────────
+rebuildAll();
+</script>
+</body>
+</html>
